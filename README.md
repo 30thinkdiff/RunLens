@@ -20,9 +20,11 @@ precision, recall, F1, FPR, coverage, confusion counts and measured runtime.
 阶段进度和真实测试状态见 [TASKS.md](TASKS.md)。
 
 [Download v0.1.0](https://github.com/30thinkdiff/RunLens/releases/tag/v0.1.0) —
-[release CI](https://github.com/30thinkdiff/RunLens/actions)
+[release CI](https://github.com/30thinkdiff/RunLens/actions/runs/37955842348)
 passed on Windows, Ubuntu and macOS, with 219 tests per platform and verified
-real-experiment artifacts. The release tag remains on verified commit `history-rewritten`.
+real-experiment artifacts. The cleaned release tag points to verified commit `b54e129`.
+Local task prompts are excluded from every published Git revision.
+Real-data downloads and import settings: [REAL_DATA_DOWNLOADS.md](docs/REAL_DATA_DOWNLOADS.md).
 
 ## Requirements
 

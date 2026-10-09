@@ -97,6 +97,8 @@ EuRoC MAV 的 IMU CSV 导入：从 [官方数据集页](https://projects.asl.eth
 手动选择 `#timestamp [ns]`（或文件中的实际名称）以及角速度/加速度通道，
 时间单位选择 `ns`。仓库没有捆绑 EuRoC；本轮官方端点连接超时或访问受限，
 尚未运行真实 EuRoC IMU 实验。当前真实回归数据使用小型 UCI 机器人力/力矩记录。
+现行官方下载入口、已核查响应和导入设置见 [真实数据下载指南](REAL_DATA_DOWNLOADS.md)，
+建议先试 TUM VI room1 的 EuRoC 格式 IMU CSV。
 
 ## 质量规则与解释
 

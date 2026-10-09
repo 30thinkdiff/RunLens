@@ -50,9 +50,8 @@ Linux/macOS 用 `.venv/bin/python`；CI 执行相同核心检查并保存 JUnit�
 Phase 4：Windows CPython 3.11.9，193 passed in 86.67s；ruff/格式/依赖检查通过。
 Phase 5：Windows CPython 3.11.9，219 passed in 92.04s；ruff/58 文件格式/依赖检查通过。
 wheel 独立导入真实全流程与 23 文件实验复跑通过，详见 examples/PHASE5_RESULT.md。
-Phase 5 首轮 0.0.6 三平台实际通过：
-[Actions 37951954582](https://github.com/30thinkdiff/RunLens/actions)，
-精确提交 `history-rewritten`。
+Phase 5 首轮 0.0.6 三平台实际通过。提示词历史清理后，旧运行链接和提交引用已移除；
+以下首轮数值作为历史记录保留，当前证据使用清理后重新运行的 CI。
 Windows、Ubuntu、macOS 三个 job 均 success，包含测试、固定真实实验和证据上传。
 已认证下载并核对三个 artifact 内的 JUnit 与 metrics.csv：每平台 219 项测试，
 失败/错误/跳过均 0；四组真实实验计数与本地一致，覆盖率均 1。
@@ -70,8 +69,8 @@ AppTest 为无浏览器交互验证，人工视觉检查另行记录，目前未
 ## GitHub Actions 与版本发布清单
 
 **已发布 v0.1.0**：[Release](https://github.com/30thinkdiff/RunLens/releases/tag/v0.1.0)，
-标签提交 `history-rewritten`。
-该版本自身 [CI 37953164976](https://github.com/30thinkdiff/RunLens/actions)
+清理后的标签提交 `b54e129a03a02d1a69a02525d26f90b322a5afb0`。
+该版本自身 [CI 37955842348](https://github.com/30thinkdiff/RunLens/actions/runs/37955842348)
 三平台实际成功，各 219 passed、无错误/失败/跳过；下载的真实实验计数、覆盖率、
 数据身份与版本均已核对。平台/计时见 examples/PHASE5_RESULT.md。
 
@@ -96,3 +95,10 @@ AppTest 为无浏览器交互验证，人工视觉检查另行记录，目前未
 记载的准确提交、运行和 wheel 附件为准；不存在该页面或标签时不可声称已正式发布。
 
 发布到 GitHub 不等于发布 PyPI；不创建或上传 PyPI 包。以后增加数据集须另外核查许可。
+
+提示词文件仅在开发者本地保留并忽略。全新远程镜像克隆及全部可下载历史已核对无该文件。
+用户确认以新下载/克隆不出现文件为目标；GitHub 缓存和已存在的他人副本不由 Git 推送控制。
+原发布的旧提交/运行链接已清理；上述新的标签运行证明重写后的版本重新通过验收。
+清理后的 wheel 独立真实流程仍为 1320 行/528 特征/7020 评分/schema 2，GitHub 附件 digest：
+`sha256:6e9ad00dbd240a8e992dde06b9f4f7fa55406133cf9b0a7393afc4446b8d084e`。
+实际下载 GitHub 标签源码 ZIP 也已核对无本地任务提示词；公开需求位于 PRD.md。

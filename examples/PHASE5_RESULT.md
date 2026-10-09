@@ -39,8 +39,8 @@ wheel SHA-256（0.0.6）：
 固定协议和许可见 [PHASE4_RESULT.md](PHASE4_RESULT.md)、[第三方说明](../THIRD_PARTY_NOTICES.md)。
 
 复现命令、平台证据与发布清单见 [VALIDATION.md](../docs/VALIDATION.md)。
-首次实际 CI：[运行 37951954582](https://github.com/30thinkdiff/RunLens/actions)，
-提交 `history-rewritten`；Windows/Ubuntu/macOS 三 job 均成功。
+首次实际 CI 的 Windows/Ubuntu/macOS 三 job 均成功。历史清理后旧运行已移除，
+首轮计时保留为历史记录，现行证据采用清理后重新执行的 CI。
 实际下载三个平台 artifact 验证：每份 JUnit 219 项、0 失败/错误/跳过，四组计数及
 覆盖率与本地一致；JUnit 耗时 Windows 79.602s、Ubuntu 78.624s、macOS 63.526s。
 实际环境 Windows CPython 3.11.9 AMD64、Linux 3.11.17 x86_64、Darwin 3.11.9 arm64，
@@ -51,27 +51,31 @@ wheel SHA-256（0.0.6）：
 0.1.0 本地重新验收：**219 passed in 83.25s**，ruff/格式/pip check 通过，版本命令
 输出 RunLens 0.1.0；独立 wheel 实测流程仍为 1320 行、528 特征、7020 评分、schema 2，
 固定真实实验重新导出 23 文件，计数一致。0.1.0 wheel SHA-256：
-`311167680652b6dda6640eb405df32c61035a98bb4cdd9143a256424403b5473`。
+`6e9ad00dbd240a8e992dde06b9f4f7fa55406133cf9b0a7393afc4446b8d084e`。
+此处为历史清理后替换发布附件的最新指纹；核心模块保持不变，替换的是公开说明元数据。
 正式标签在该版本自身三平台 CI 成功后创建；最终记录见
 [发布页](https://github.com/30thinkdiff/RunLens/releases/tag/v0.1.0)。
 
 ## 正式发布最终证据
 
 [v0.1.0](https://github.com/30thinkdiff/RunLens/releases/tag/v0.1.0) 已公开发布，
-标签精确指向 `history-rewritten`。
-该版本 [CI 37953164976](https://github.com/30thinkdiff/RunLens/actions)
+清理后标签精确指向 `b54e129a03a02d1a69a02525d26f90b322a5afb0`。
+该版本 [CI 37955842348](https://github.com/30thinkdiff/RunLens/actions/runs/37955842348)
 三 job 均 success；实际下载三个产物，每平台 219 项测试且失败/错误/跳过 0。
 报告版本均为 0.1.0，四组混淆计数、覆盖率与规范化数据身份跨平台一致。
 
 | 发布平台 | CPython / 架构 | JUnit 秒数 | 实际结果 |
 | --- | --- | --- | --- |
-| Windows | 3.11.9 / AMD64 | 81.251 | 219 passed |
-| Ubuntu | 3.11.17 / x86_64 | 78.446 | 219 passed |
-| macOS | 3.11.9 / arm64 | 83.958 | 219 passed |
+| Windows | 3.11.9 / AMD64 | 86.688 | 219 passed |
+| Ubuntu | 3.11.17 / x86_64 | 79.272 | 219 passed |
+| macOS | 3.11.9 / arm64 | 64.772 | 219 passed |
 
 GitHub Release ID 408064518；附件
 [runlens-0.1.0-py3-none-any.whl](https://github.com/30thinkdiff/RunLens/releases/download/v0.1.0/runlens-0.1.0-py3-none-any.whl)。
 安装方式、准确 CI 与已知误报/时钟限制均随发布说明提供；不发布 PyPI。
-此记录为发布后的文档归档，正式标签保持指向已验收提交。
+原发布后的历史记录计时保留；用户授权清理提示词后，标签与分支均已重写，
+重写后的标签另行通过三平台验收。旧运行和 SHA 链接不再公开保存。
+全新远程镜像克隆及实际 GitHub 源码 ZIP 均不含本地任务提示词。开发者本地文件保留并忽略。
+用户确认以新下载/克隆不包含文件为目标，不申请服务器缓存清理。
 课程与技术材料见 [课程提纲](../docs/COURSE_REPORT_OUTLINE.md)、
 [技术交底提纲](../docs/TECHNICAL_DISCLOSURE_OUTLINE.md)。

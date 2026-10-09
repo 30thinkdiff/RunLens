@@ -22,15 +22,25 @@
 正式发布需要该 0.1.0 提交自身三平台 CI 成功；标签指向通过的准确提交。
 最终 SHA、CI 链接与包附件记录在
 [v0.1.0 发布页](https://github.com/30thinkdiff/RunLens/releases/tag/v0.1.0)。
-已发布提交 `history-rewritten`，
-实际 [0.1.0 CI](https://github.com/30thinkdiff/RunLens/actions) 三 job 成功。
-发布后文档归档提交与版本标签分开记录，不移动通过验收的正式标签。
+清理后的标签提交 `b54e129a03a02d1a69a02525d26f90b322a5afb0`，
+实际 [0.1.0 CI](https://github.com/30thinkdiff/RunLens/actions/runs/37955842348) 三 job 成功。
+用户授权从全部历史移除本地任务提示词后，分支与正式标签已重写并重新验收。
 
 详细证据见 [PHASE5_RESULT.md](examples/PHASE5_RESULT.md) 和
 [VALIDATION.md](docs/VALIDATION.md)。初次完整检查暴露旧版本页面清理遗漏报告，
 修复后专项与完整测试通过。未进行人工浏览器视觉检查。
-首轮三平台证据：[运行 37951954582](https://github.com/30thinkdiff/RunLens/actions)，
-提交 `history-rewritten`，三个 job 均实际 success。
+清理前首轮三平台实际 success；旧在线运行与链接已移除，历史计时仅保留为记录。
+
+## 提示词历史清理与真实数据下载
+
+- [x] 用户授权移除本地任务提示词的全部公开 Git 历史，并加入根目录忽略规则。
+- [x] 本地 prompt.md 字节不变；公开 master 与 v0.1.0 均已重写。
+- [x] 从远程全新镜像克隆核对所有分支/标签/历史对象：无该文件和原 blob。
+- [x] 仓库无 fork/PR；旧 Actions 运行及在线产物已清理，清理后的 CI 三平台重新成功。
+- [x] 核查官方真实数据下载入口、压缩包响应与导入设置，见 docs/REAL_DATA_DOWNLOADS.md。
+
+用户确认以新克隆/下载项目看不到原文件为目标，不开展 GitHub 支持申请。
+GitHub 旧 SHA/blob 缓存仍可访问；Git 历史重写不能撤回已下载副本或自行清除服务器缓存。
 
 ## Phase 4
 
