@@ -35,4 +35,4 @@ def test_startup_page_runs_without_errors():
 
     assert not app.exception
     assert app.title[0].value == "RunLens"
-    assert "Phase 0" in app.info[0].value
+    assert "Synthetic Data" in app.info[0].value

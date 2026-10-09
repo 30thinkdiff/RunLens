@@ -9,8 +9,8 @@ def main() -> None:
     """Show project information or the installed version."""
     parser = argparse.ArgumentParser(
         prog="runlens",
-        description="RunLens — robot time-series analysis toolkit (Phase 0).",
-        epilog="Start the initialization page with: python -m streamlit run app.py",
+        description="RunLens — robot time-series exploration (Phase 1).",
+        epilog="Start the application with: python -m streamlit run app.py",
     )
     parser.add_argument("--version", action="version", version=f"RunLens {__version__}")
     parser.parse_args()

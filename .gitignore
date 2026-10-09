@@ -21,6 +21,7 @@ htmlcov/
 .streamlit/secrets.toml
 data/
 reports/
+examples/generated/
 
 # Editor and operating system files
 .idea/
