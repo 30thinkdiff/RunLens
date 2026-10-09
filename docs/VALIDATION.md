@@ -69,6 +69,12 @@ AppTest 为无浏览器交互验证，人工视觉检查另行记录，目前未
 
 ## GitHub Actions 与版本发布清单
 
+**已发布 v0.1.0**：[Release](https://github.com/30thinkdiff/RunLens/releases/tag/v0.1.0)，
+标签提交 `history-rewritten`。
+该版本自身 [CI 37953164976](https://github.com/30thinkdiff/RunLens/actions)
+三平台实际成功，各 219 passed、无错误/失败/跳过；下载的真实实验计数、覆盖率、
+数据身份与版本均已核对。平台/计时见 examples/PHASE5_RESULT.md。
+
 仓库：[30thinkdiff/RunLens](https://github.com/30thinkdiff/RunLens)，使用现有 master 分支。
 用户于本阶段提供地址，origin 已连接；先验检查远程为空，避免覆盖既有历史。
 当前流程只测试并上传证据，无自动发布步骤。官方 Action 标签已只读核对并固定提交：
@@ -81,6 +87,8 @@ AppTest 为无浏览器交互验证，人工视觉检查另行记录，目前未
 - [x] 对该提交核对三个 job 的成功结论和测试/实验产物，不只看总体图标。
 - [x] 首轮 CI 无失败；如果后续运行失败，修复后完整复跑，不能跳过失败测试。
 - [x] 首轮通过后升级 0.1.0，本地 219 passed in 83.25s；wheel、真实实验与各检查通过。
+- [x] 0.1.0 准确提交自身三平台成功，真实产物再次核对。
+- [x] 正式标签准确指向验收提交，Release 公开发布并上传已验证 wheel。
 
 发布执行条件：该版本自身三平台检查成功、每个 job 与产物再次核对，tag v0.1.0
 指向该准确提交。发布说明须附安装方式、真实实验/误报局限、许可、平台与 CI 链接。

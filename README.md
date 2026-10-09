@@ -19,6 +19,11 @@ precision, recall, F1, FPR, coverage, confusion counts and measured runtime.
 中文安装说明见 [用户指南](docs/USER_GUIDE.md)。需求见 [PRD.md](PRD.md)，
 阶段进度和真实测试状态见 [TASKS.md](TASKS.md)。
 
+[Download v0.1.0](https://github.com/30thinkdiff/RunLens/releases/tag/v0.1.0) —
+[release CI](https://github.com/30thinkdiff/RunLens/actions)
+passed on Windows, Ubuntu and macOS, with 219 tests per platform and verified
+real-experiment artifacts. The release tag remains on verified commit `history-rewritten`.
+
 ## Requirements
 
 - CPython **3.11**, pip and venv; a regular CPU is sufficient.

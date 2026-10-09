@@ -2,7 +2,7 @@
 
 2026-10-09，RunLens 0.0.6。本地 Windows AMD64 / CPython 3.11.9 已验收，
 GitHub 仓库 origin 已连接；0.0.6 首轮三平台 CI 已实际成功。
-0.1.0 版本提交须重新通过本地与三平台检查，才创建标签和发布页。
+0.1.0 已重新通过本地与三平台检查，正式标签和发布页已创建，核心 wheel 已上传。
 
 | 检查 | 实际结果 |
 | --- | --- |
@@ -54,5 +54,24 @@ wheel SHA-256（0.0.6）：
 `311167680652b6dda6640eb405df32c61035a98bb4cdd9143a256424403b5473`。
 正式标签在该版本自身三平台 CI 成功后创建；最终记录见
 [发布页](https://github.com/30thinkdiff/RunLens/releases/tag/v0.1.0)。
+
+## 正式发布最终证据
+
+[v0.1.0](https://github.com/30thinkdiff/RunLens/releases/tag/v0.1.0) 已公开发布，
+标签精确指向 `history-rewritten`。
+该版本 [CI 37953164976](https://github.com/30thinkdiff/RunLens/actions)
+三 job 均 success；实际下载三个产物，每平台 219 项测试且失败/错误/跳过 0。
+报告版本均为 0.1.0，四组混淆计数、覆盖率与规范化数据身份跨平台一致。
+
+| 发布平台 | CPython / 架构 | JUnit 秒数 | 实际结果 |
+| --- | --- | --- | --- |
+| Windows | 3.11.9 / AMD64 | 81.251 | 219 passed |
+| Ubuntu | 3.11.17 / x86_64 | 78.446 | 219 passed |
+| macOS | 3.11.9 / arm64 | 83.958 | 219 passed |
+
+GitHub Release ID 408064518；附件
+[runlens-0.1.0-py3-none-any.whl](https://github.com/30thinkdiff/RunLens/releases/download/v0.1.0/runlens-0.1.0-py3-none-any.whl)。
+安装方式、准确 CI 与已知误报/时钟限制均随发布说明提供；不发布 PyPI。
+此记录为发布后的文档归档，正式标签保持指向已验收提交。
 课程与技术材料见 [课程提纲](../docs/COURSE_REPORT_OUTLINE.md)、
 [技术交底提纲](../docs/TECHNICAL_DISCLOSURE_OUTLINE.md)。
