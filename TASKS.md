@@ -1,9 +1,59 @@
 # RunLens 任务与验证状态
 
-当前阶段：**Phase 1 — 最小可用产品（已完成 Windows 本地验收）**。
-用户已确认进入 Phase 1；完成后等待确认 Phase 2。
+当前阶段：**Phase 2 — 窗口特征与频谱（已完成 Windows 本地验收）**。
+用户已确认进入 Phase 2；完成后等待确认 Phase 3。
 
-## Phase 1
+## Phase 2
+
+- [x] 检查 Phase 1、原始要求与 Git 状态，保存阶段计划。
+- [x] 添加独立 features.py、窗口/频谱配置和结果结构。
+- [x] 样本窗口长度/步长、可选尾窗、九项时域统计、omit/propagate 与计数。
+- [x] 稳定三轴模长作为额外通道，保留原始轴并校验映射与名称。
+- [x] 矩形窗单边 FFT、周期 Hann Welch PSD、主频、PSD 积分、谱能量估计与质心。
+- [x] 显式采样容差；拒绝不递增/不规则/无效采样与 NaN/Inf 信号，不插值。
+- [x] 每窗频域拒绝原因、时域保留、数值范围与结果量/累计处理量限制。
+- [x] Streamlit 特征表单、趋势、片段频谱、带参数和原因的完整特征 CSV。
+- [x] 输入映射变化清除旧结果，减少到不足三通道时关闭模长。
+- [x] SciPy 加入运行依赖并实际安装；版本更新为 0.0.3。
+- [x] 已知信号验证、界面/导出回归、不覆盖已有文件的可复现特征示例。
+- [x] 更新中英文指南、架构、阶段状态和实际结果。
+- [x] 全套 pytest、ruff、格式、依赖完整性与 Git 差异检查通过。
+- [x] 本地 Git 归档，仅提交本阶段代码/文档/测试，保留用户技能和原有示例。
+
+### Phase 2 最终验收
+
+2026-10-09，Windows，本项目 `.venv` 的 CPython 3.11.9：
+
+| 检查 | 实际结果 |
+| --- | --- |
+| 核心测试先行 | 尚未创建 features.py 时因模块缺失失败，符合预期 |
+| `python -m pytest` | **117 passed in 23.38s** |
+| `python -m ruff check .` | All checks passed |
+| `python -m ruff format --check .` | 31 files already formatted |
+| `python -m pip check` | No broken requirements found |
+| `python -m runlens --version` | RunLens 0.0.3 |
+| 特征示例脚本 | 实际生成 CSV 与版本/参数/计时 JSON，见 examples/PHASE2_RESULT.md |
+| 原始 prompt.md | SHA-256 与 Phase 0 一致，未改动 |
+| Linux/macOS CI | **未运行**；未配置 Git 远程 |
+
+新增 50 项测试，覆盖已知数组/正弦的时域与频域、奇偶 FFT/Nyquist、
+Welch 功率积分与去均值、窗口/尾窗、模长、采样拒绝与显式抖动容差、
+NaN/Inf/常数/短序列、溢出与功率下溢、处理量限制、CSV 回读、
+真实模拟上传/参数提交/文件替换/结果失效/不足三轴，以及脚本覆盖保护。
+原有 67 项测试全部保留并通过。
+
+实际示例：已知 16 Hz、幅值 2 正弦得到 RMS √2、FFT 幅值 2、主频 16 Hz、
+PSD 积分约 2、谱能量估计约 8、谱质心 16 Hz。
+默认 IMU 增加加速度模长后生成 14 窗 / 98 条记录，其中频域有效 59 条；
+21 条非递增时间、14 条不规则采样、4 条信号无效，均保留时域结果。
+分析计时 0.0979909 s（单次本机，不含导入库与写文件）。
+完整复现方法与限制见 [PHASE2_RESULT.md](examples/PHASE2_RESULT.md)。
+
+运行版本：RunLens 0.0.3、Streamlit 1.65.0、SciPy 1.17.1、Plotly 6.9.0、
+pandas 3.0.6、NumPy 2.4.6、pytest 8.4.2、ruff 0.16.10。
+尚未进行人工浏览器视觉检查或真实 EuRoC 实验；没有检测准确率结论。
+
+## Phase 1（历史记录，已完成）
 
 - [x] 检查现有代码和用户新增技能，保留 .agents/、.claude/ 原有未提交文件。
 - [x] 新增阶段计划与独立 schemas / io / quality / demo / plotting 模块。
@@ -72,7 +122,7 @@ pandas 3.0.6、NumPy 2.4.6、pytest 8.4.2、ruff 0.16.10。
 ## 后续阶段
 
 - [x] Phase 1 功能：CSV 导入/映射、相对时间、质量检查、Plotly 曲线、合成数据与标签。
-- [ ] Phase 2：窗口特征、三轴模长、FFT/Welch、特征 CSV 导出。
+- [x] Phase 2：窗口特征、三轴模长、FFT/Welch、特征 CSV 导出。
 - [ ] Phase 3：MAD、候选区间、Isolation Forest 与拟合/评估分离。
 - [ ] Phase 4：可复现实验、评价单位、方法比较、真实计时、结构化报告。
 - [ ] Phase 5：完整边界测试、文档与课程报告提纲、CI 验收、v0.1.0。
@@ -83,13 +133,15 @@ pandas 3.0.6、NumPy 2.4.6、pytest 8.4.2、ruff 0.16.10。
 - 已下载并验证 Python Software Foundation 签名的官方 Python 3.11.9
   安装包，安装到被忽略的 `.tools/python311/`，创建 `.venv/`。
   原有 Python 与 PATH 保持原配置；IDE 应选择 `.venv/Scripts/python.exe`。
-- Phase 1 已安装并直接声明 Streamlit、pandas、NumPy、Plotly；
-  analysis 可选依赖组中的 SciPy/scikit-learn 尚未安装或验证。
+- 已安装并直接声明 Streamlit、pandas、NumPy、Plotly、SciPy；
+  analysis 可选依赖组中的 scikit-learn 留待 Phase 3，尚未安装或验证。
 - 未配置远程，不能触发 GitHub Actions。Linux/macOS 尚未验证。
 - CSV 上限 20 MiB / 100000 行 / 64 列；图最多 20000 行 / 8 通道。
   超出绘图限制时需缩小范围，不自动抽稀。UI 表格和标记也有明确显示上限。
 - 中位数间隔基准在多数间隔异常或分段采样率时可能不能代表期望频率。
-- 尚无滑动窗口、FFT、统计异常检测、完整报告导出；不发布 v0.1.0。
+- 窗口结果最多 50000 条窗口×通道记录、累计处理量最多 2000 万个信号值。
+  采样相对容差默认 1e-6，放宽后是显式近似假设；谱能量估计不代表机械能。
+- 尚无统计异常检测、完整报告导出；不发布 v0.1.0。
 
 ## Phase 0 验证记录（历史）
 
@@ -112,5 +164,5 @@ Streamlit 1.65.0、pytest 8.4.2、ruff 0.16.10、pip 24.0。
 上述命令均由 `.venv` 中的解释器执行。UI 通过 Streamlit AppTest 执行，
 未执行人工浏览器视觉检查。没有在本阶段测量分析性能或检测准确率。
 
-下一阶段建议：确认后进入 Phase 2，添加滑动窗口时域特征、三轴模长、
-已知信号验证、FFT/Welch 与特征 CSV 导出；不规则时间戳不能直接做等间隔 FFT。
+下一阶段建议：确认后进入 Phase 3，先实现中位数/MAD 和候选区间，再增加
+Isolation Forest；处理 MAD=0、拟合/评估分离，并记录方法、参数和分数定义。

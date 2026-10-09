@@ -33,8 +33,28 @@ Linux/macOS：
 
 标签 `row_start` / `row_end` 使用 0 起始原始样本行，包含端点；
 时间字段为该行对应的相对秒，逆序区间的端点可能逆序。
-Phase 1 仅检测质量规则；尖峰/振动标签供后续统计方法评估，
+当前仍仅检测质量规则；Phase 2 增加窗口与频谱特征，尖峰/振动标签供后续统计方法评估，
 当前没有检测准确率、F1 或故障概率结果。
 
 真实执行的质量结果见 [EXAMPLE_RESULT.md](EXAMPLE_RESULT.md)。
 公开真实数据未捆绑；下载与导入说明见中文用户指南。
+
+## Phase 2 特征复现
+
+Windows PowerShell：
+
+```powershell
+.\.venv\Scripts\python.exe -X utf8 examples/analyze_features.py
+```
+
+Linux/macOS：
+
+```bash
+.venv/bin/python examples/analyze_features.py
+```
+
+输出到 `examples/generated/phase2/`：`synthetic_features.csv`、
+`sine_features.csv` 和 `summary.json`，记录实际特征、拒绝原因、配置、
+版本与分析运行时间。该脚本不改动 Phase 1 示例；默认拒绝覆盖，
+可指定新的 `--output`，明确需要覆盖时用 `--overwrite`。
+已知正弦与种子 42 IMU 的实际结果见 [PHASE2_RESULT.md](PHASE2_RESULT.md)。

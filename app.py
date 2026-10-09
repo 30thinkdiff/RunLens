@@ -1,18 +1,28 @@
-"""RunLens Phase 1: CSV exploration and observable data-quality checks."""
+"""RunLens: CSV exploration, data quality and window/spectral features."""
 
 import hashlib
 import json
 
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 from runlens import __version__
 from runlens.demo import generate_demo
+from runlens.features import (
+    SPECTRAL_FEATURES,
+    TIME_FEATURES,
+    SpectralAnalysisError,
+    add_vector_magnitude,
+    analyze_spectrum,
+    extract_features,
+    feature_csv,
+)
 from runlens.io import DataValidationError, prepare_dataset, read_csv
 from runlens.plotting import MAX_MARKERS, MAX_PLOT_CHANNELS, build_signal_figure
 from runlens.quality import check_quality
-from runlens.schemas import ImportConfig
+from runlens.schemas import ImportConfig, SpectralConfig, WindowConfig
 
 
 @st.cache_data(ttl=600, max_entries=3, scope="session", show_spinner=False)
@@ -38,11 +48,20 @@ def cached_analysis(
     return dataset, check_quality(dataset, gap_factor=gap_factor)
 
 
+@st.cache_data(ttl=600, max_entries=3, scope="session", show_spinner=False)
+def cached_features(payload, import_config, window_config, source_name, axes, name):
+    dataset = prepare_dataset(read_csv(payload), import_config, source_name)
+    result = extract_features(
+        dataset, window_config, magnitude_axes=axes, magnitude_name=name
+    )
+    return result, feature_csv(result)
+
+
 st.set_page_config(
     page_title="RunLens", page_icon=":material/analytics:", layout="wide"
 )
 st.title("RunLens")
-st.caption(f"Robot time-series explorer · v{__version__} · Phase 1")
+st.caption(f"Robot time-series explorer · v{__version__} · Phase 2")
 
 with st.sidebar:
     st.header("数据与配置")
@@ -127,6 +146,11 @@ except ValueError as exc:
     st.stop()
 
 summary = report.summary
+feature_identity = (identity, config, source_name)
+if st.session_state.get("feature_identity") != feature_identity:
+    st.session_state["feature_identity"] = feature_identity
+    st.session_state.pop("feature_result", None)
+    st.session_state.pop("feature_csv", None)
 rate = summary["sample_rate_hz"]
 valid_times = dataset.time_s[np.isfinite(dataset.time_s)]
 lo, hi = float(np.min(valid_times)), float(np.max(valid_times))
@@ -147,10 +171,10 @@ st.caption(
     "采样频率 = 1 / 有效相邻正间隔中位数；仅描述时间戳，不保证真实传感器采样率。"
 )
 view = st.segmented_control(
-    "查看", ["数据概览", "信号浏览"], default="数据概览", key="view"
+    "查看", ["数据概览", "信号浏览", "特征分析"], default="数据概览", key="view"
 )
 
-if view != "信号浏览":
+if view in (None, "数据概览"):
     st.subheader("数据质量报告")
     st.markdown(
         f"大间隔：Δt > 中位数 × **{gap_factor:g}**；"
@@ -182,7 +206,7 @@ if view != "信号浏览":
     st.dataframe(
         report.issues.head(500), alt="质量问题的原始样本行、相对时间、通道、规则与阈值"
     )
-else:
+elif view == "信号浏览":
     st.subheader("信号浏览")
     plot_identity = hashlib.sha256(repr(channels).encode()).hexdigest()[:8]
     plot_channels = st.multiselect(
@@ -246,3 +270,224 @@ else:
     st.dataframe(
         detail.head(1000), alt="当前时间范围内前 1000 个样本行的原始字段及相对时间"
     )
+else:
+    st.subheader("窗口特征")
+    st.caption(
+        "按原始样本行滑动窗口，窗口和步长单位为样本；不排序或插值。"
+        "统计按样本等权计算，std/variance 使用 ddof=0。"
+    )
+    with st.form("feature_config"):
+        with st.container(horizontal=True):
+            window_size = st.number_input(
+                "窗口长度（样本）", 1, 100_000, 256, key="window_size"
+            )
+            step_size = st.number_input(
+                "步长（样本）", 1, 100_000, 128, key="step_size"
+            )
+            nan_policy = st.selectbox(
+                "无效信号值策略", ["omit", "propagate"], key="nan_policy"
+            )
+        st.caption(
+            "omit：时域统计忽略 NaN/Inf 并记录数量；propagate：有无效值则统计为空。"
+            "两种策略都不会删掉样本后计算频谱。"
+        )
+        include_partial = st.checkbox("保留尾部不足长度的窗口", key="include_partial")
+        include_spectral = st.checkbox(
+            "计算窗口频域特征", value=True, key="include_spectral"
+        )
+        with st.container(horizontal=True):
+            sampling_rtol = st.number_input(
+                "采样间隔相对容差",
+                0.0,
+                0.05,
+                1e-6,
+                step=1e-6,
+                format="%.6g",
+                key="sampling_rtol",
+            )
+            welch_nperseg = st.number_input(
+                "Welch 分段长度（样本）", 2, 100_000, 256, key="welch_nperseg"
+            )
+        remove_mean = st.checkbox(
+            "频谱分析前去除整段均值", value=True, key="remove_mean"
+        )
+        if len(channels) < 3:
+            st.session_state["use_magnitude"] = False
+        use_magnitude = st.checkbox(
+            "增加三轴模长通道", disabled=len(channels) < 3, key="use_magnitude"
+        )
+        default_axes = (
+            ["accel_x", "accel_y", "accel_z"]
+            if {"accel_x", "accel_y", "accel_z"} <= set(channels)
+            else channels[:3]
+        )
+        axes = st.multiselect(
+            "模长的三个轴",
+            channels,
+            default=default_axes,
+            max_selections=3,
+            key=f"magnitude_axes_{identity}_{timestamp_column}_{tuple(channels)}",
+        )
+        magnitude_name = st.text_input(
+            "模长通道名称", value="vector_magnitude", key="magnitude_name"
+        )
+        submitted = st.form_submit_button("计算窗口特征", key="compute_features")
+    if submitted:
+        try:
+            window_config = WindowConfig(
+                window_size=int(window_size),
+                step_size=int(step_size),
+                include_partial=include_partial,
+                nan_policy=nan_policy,
+                include_spectral=include_spectral,
+                spectral=SpectralConfig(
+                    sampling_rtol=float(sampling_rtol),
+                    welch_nperseg=int(welch_nperseg),
+                    remove_mean=remove_mean,
+                ),
+            )
+            with st.spinner("计算窗口特征…"):
+                result, csv_bytes = cached_features(
+                    payload,
+                    config,
+                    window_config,
+                    source_name,
+                    tuple(axes) if use_magnitude else None,
+                    magnitude_name,
+                )
+            st.session_state["feature_result"] = result
+            st.session_state["feature_csv"] = csv_bytes
+        except ValueError as exc:
+            st.session_state.pop("feature_result", None)
+            st.session_state.pop("feature_csv", None)
+            st.error(str(exc))
+    result = st.session_state.get("feature_result")
+    if result is not None:
+        table = result.table
+        st.caption(
+            f"已计算：窗口 {result.config.window_size}、"
+            f"步长 {result.config.step_size}、无效值策略 {result.config.nan_policy}；"
+            f"共 {len(table):,} 条窗口×通道记录。"
+            "表格显示前 1000 条，CSV 包含全部记录与配置；行号从 0 起、包含两端。"
+        )
+        st.download_button(
+            "下载特征 CSV",
+            st.session_state["feature_csv"],
+            "runlens_features.csv",
+            "text/csv",
+            key="download_features",
+        )
+        st.dataframe(table.head(1000), alt="窗口特征、计算配置和频谱拒绝原因")
+        if table.empty:
+            st.info("没有满足长度的窗口；请缩短窗口或保留尾部不足长度的窗口。")
+        else:
+            st.dataframe(
+                table["spectral_status"].value_counts().rename("records").reset_index(),
+                alt="窗口频谱各状态的记录数",
+            )
+            rejected = ~table["spectral_status"].isin(["ok", "disabled"])
+            if rejected.any():
+                st.warning(
+                    f"{int(rejected.sum())} 条记录的频谱未计算；"
+                    "时域结果仍保留，原因见 spectral_status / spectral_message。"
+                )
+            if table["overflow_features"].ne("").any():
+                st.warning(
+                    "部分时域指标超出数值范围，已置空并记录在 overflow_features。"
+                )
+            with st.container(horizontal=True):
+                trend_channel = st.selectbox(
+                    "特征趋势通道", table["channel"].unique(), key="trend_channel"
+                )
+                trend_metric = st.selectbox(
+                    "特征趋势指标",
+                    [*TIME_FEATURES, *SPECTRAL_FEATURES],
+                    key="trend_metric",
+                )
+            trend = table.loc[table["channel"] == trend_channel]
+            if len(trend) <= 20_000:
+                figure = go.Figure(
+                    go.Scatter(
+                        x=trend["start_s"].tolist(),
+                        y=trend[trend_metric].tolist(),
+                        mode="markers",
+                        name=trend_metric,
+                    )
+                )
+                figure.update_layout(
+                    xaxis_title="窗口起点（相对秒）", yaxis_title=trend_metric
+                )
+                st.plotly_chart(
+                    figure, key="feature_trend", alt="各窗口特征随窗口起点变化的散点图"
+                )
+            else:
+                st.info("趋势图超过 20,000 个窗口，请增大步长；CSV 仍包含全部记录。")
+    else:
+        st.info("设置参数并点击“计算窗口特征”以生成结果。")
+
+    st.subheader("所选片段的 FFT 与 Welch PSD")
+    spectrum_signals = dataset.signals
+    spectrum_config = result.config.spectral if result is not None else SpectralConfig()
+    if result is not None and result.magnitude_axes is not None:
+        spectrum_signals = add_vector_magnitude(
+            spectrum_signals, result.magnitude_axes, result.magnitude_name
+        )
+    spectrum_channel = st.selectbox(
+        "频谱通道", spectrum_signals.columns.tolist(), key="spectrum_channel"
+    )
+    if len(dataset.time_s) > 1:
+        spectrum_range = st.slider(
+            "频谱原始样本行范围（包含两端）",
+            0,
+            len(dataset.time_s) - 1,
+            (0, min(255, len(dataset.time_s) - 1)),
+            key=f"spectrum_range_{identity}",
+        )
+    else:
+        spectrum_range = (0, 0)
+    st.caption(
+        f"当前频谱配置：相对容差 {spectrum_config.sampling_rtol:g}，"
+        f"Welch 分段上限 {spectrum_config.welch_nperseg}，"
+        f"去除均值 {spectrum_config.remove_mean}。"
+        "提交上方表单后更新。频谱需要至少两个有限样本和严格递增、近似等间隔的时间戳。"
+    )
+    first, last = spectrum_range
+    try:
+        spectrum = analyze_spectrum(
+            spectrum_signals[spectrum_channel].iloc[first : last + 1],
+            dataset.time_s[first : last + 1],
+            config=spectrum_config,
+            interval_s=dataset.interval_s[first + 1 : last + 1],
+        )
+    except SpectralAnalysisError as exc:
+        st.warning(f"频谱未计算（{exc.code}）：{exc}")
+    else:
+        for key, title, x, y, ylabel in [
+            (
+                "fft",
+                "单边 FFT 幅值谱（矩形窗）",
+                spectrum.frequency_hz,
+                spectrum.amplitude,
+                "幅值（信号单位）",
+            ),
+            (
+                "psd",
+                "Welch PSD（周期 Hann 窗，50% 重叠）",
+                spectrum.psd_frequency_hz,
+                spectrum.psd_density,
+                "PSD（信号单位²/Hz）",
+            ),
+        ]:
+            figure = go.Figure(go.Scatter(x=x.tolist(), y=y.tolist(), name=title))
+            figure.update_layout(
+                title=title, xaxis_title="频率（Hz）", yaxis_title=ylabel
+            )
+            st.plotly_chart(figure, key=key, alt=f"{spectrum_channel} 的{title}")
+        st.dataframe(
+            pd.DataFrame([spectrum.features]), alt="所选片段的频域指标及分辨率"
+        )
+        st.caption(
+            "主频取非 DC FFT 最大幅值所在频率格点；常数去均值后主频为空。"
+            "PSD 积分单位为信号单位²；频谱能量估计 = PSD 积分 × N/fs，"
+            "单位为信号单位²·s，不能解释为机械能。频谱指标描述预处理后的信号。"
+        )

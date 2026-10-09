@@ -1,8 +1,11 @@
 """Exercise real Streamlit uploads, configuration, filters and error paths."""
 
 import json
+from io import BytesIO
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 import pytest
 from streamlit.testing.v1 import AppTest
 
@@ -98,3 +101,124 @@ def test_single_sample_and_conflicting_original_column_names(app):
     assert not app.slider
     assert app.dataframe[-1].value.columns.is_unique
     assert len(app.get("plotly_chart")) == 1
+
+
+def features_view(app):
+    app.segmented_control(key="view").set_value("特征分析").run()
+    assert not app.exception
+    return app
+
+
+def compute_features(app, window=4, step=4):
+    app.number_input(key="window_size").set_value(window)
+    app.number_input(key="step_size").set_value(step)
+    app.button(key="compute_features").click().run()
+    assert not app.exception
+    return app.session_state["feature_result"]
+
+
+def test_feature_form_and_export_match_uploaded_values(app):
+    upload(app, b"t,x\n0,1\n1,2\n2,3\n3,4\n4,5\n")
+    features_view(app)
+    assert len(app.get("plotly_chart")) == 2
+    assert "feature_result" not in app.session_state
+    result = compute_features(app)
+    assert result.table["mean"].tolist() == [2.5]
+    exported = pd.read_csv(BytesIO(app.session_state["feature_csv"]))
+    assert exported["row_start"].tolist() == [0]
+    assert exported["row_end"].tolist() == [3]
+    assert exported["window_size"].tolist() == [4]
+    assert exported["spectral_status"].tolist() == ["ok"]
+    assert app.get("download_button")[-1].proto.label == "下载特征 CSV"
+    # Reruns retain the result, while newly submitted options recompute it.
+    app.checkbox(key="include_partial").check()
+    app.button(key="compute_features").click().run()
+    assert not app.exception
+    assert app.session_state["feature_result"].table["row_start"].tolist() == [0, 4]
+
+
+def test_feature_magnitude_preserves_original_channels(app):
+    upload(app, b"t,x,y,z\n0,3,4,0\n1,3,4,0\n2,3,4,0\n3,3,4,0\n")
+    features_view(app)
+    app.checkbox(key="use_magnitude").check()
+    result = compute_features(app)
+    assert result.table["channel"].tolist() == ["x", "y", "z", "vector_magnitude"]
+    assert result.table["mean"].tolist() == [3, 4, 0, 5]
+    app.selectbox(key="spectrum_channel").select("vector_magnitude").run()
+    assert not app.exception
+    assert app.dataframe[-1].value["psd_integral"].iloc[0] == 0
+
+
+def test_nan_policies_and_spectrum_rejection_are_visible(app):
+    upload(app, b"t,x\n0,1\n1,NaN\n2,3\n3,4\n")
+    features_view(app)
+    result = compute_features(app)
+    assert result.table["mean"].iloc[0] == pytest.approx(8 / 3)
+    assert result.table["spectral_status"].iloc[0] == "invalid_signal"
+    assert not any(chart.key in ("fft", "psd") for chart in app.get("plotly_chart"))
+    assert any("invalid_signal" in item.value for item in app.warning)
+    app.selectbox(key="nan_policy").select("propagate")
+    result = compute_features(app)
+    assert np.isnan(result.table["mean"].iloc[0])
+    exported = pd.read_csv(BytesIO(app.session_state["feature_csv"]))
+    assert exported["nan_policy"].tolist() == ["propagate"]
+    assert exported["valid_count"].tolist() == [3]
+
+
+def test_irregular_time_spectrum_rejected_in_ui(app):
+    upload(app, b"t,x\n0,1\n1,2\n3,3\n4,4\n")
+    features_view(app)
+    result = compute_features(app)
+    assert result.table["spectral_status"].iloc[0] == "irregular_sampling"
+    assert result.table["mean"].iloc[0] == 2.5
+    assert any("irregular_sampling" in item.value for item in app.warning)
+
+
+def test_short_feature_series_and_file_replacement(app):
+    upload(app, b"t,x\n0,2\n")
+    features_view(app)
+    result = compute_features(app)
+    assert result.table.empty
+    app.checkbox(key="include_partial").check()
+    result = compute_features(app)
+    assert result.table["rms"].tolist() == [2]
+    assert result.table["spectral_status"].tolist() == ["too_short"]
+    app.file_uploader(key="upload").set_value(
+        ("new.csv", b"t,z\n0,7\n1,8\n", "text/csv")
+    ).run()
+    assert not app.exception
+    assert "feature_result" not in app.session_state
+    assert "feature_csv" not in app.session_state
+    assert app.selectbox(key="spectrum_channel").value == "z"
+
+
+def test_changing_import_config_clears_feature_result(app):
+    features_view(app)
+    compute_features(app, 256, 128)
+    widget(app, "selectbox", "时间戳单位（请明确指定）").select("ms").run()
+    assert not app.exception
+    assert "feature_result" not in app.session_state
+
+
+def test_invalid_magnitude_configuration_is_actionable(app):
+    features_view(app)
+    app.checkbox(key="use_magnitude").check()
+    app.text_input(key="magnitude_name").set_value("accel_x")
+    app.button(key="compute_features").click().run()
+    assert not app.exception
+    assert app.error
+    assert "已有通道重复" in app.error[0].value
+    assert "feature_result" not in app.session_state
+
+
+def test_reducing_channels_turns_off_unavailable_magnitude(app):
+    features_view(app)
+    app.checkbox(key="use_magnitude").check()
+    compute_features(app, 256, 128)
+    widget(app, "multiselect", "分析通道").set_value(["accel_x"]).run()
+    assert not app.exception
+    assert not app.checkbox(key="use_magnitude").value
+    assert app.checkbox(key="use_magnitude").disabled
+    result = compute_features(app, 256, 128)
+    assert result.table["channel"].unique().tolist() == ["accel_x"]
+    assert not app.error

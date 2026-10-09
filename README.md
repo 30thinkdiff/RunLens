@@ -3,12 +3,14 @@
 A cross-platform toolkit for robot time-series data analysis, feature extraction,
 and anomaly detection.
 
-**Status: Phase 1 — CSV exploration and data-quality checks.** Version `0.0.2`
+**Status: Phase 2 — window features and spectral analysis.** Version `0.0.3`
 supports UTF-8 CSV upload, explicit timestamp/channel mapping, relative time in
 s/ms/us/ns, interactive Plotly signals, and a quality report with row-level evidence.
 The default example is clearly labeled **Synthetic Data** and needs no download.
-Windowed features, FFT/Welch, statistical anomaly detection and report export
-remain planned for later phases.
+It also supports sample-based sliding windows, nine time-domain statistics,
+optional three-axis magnitude, FFT/Welch spectra, and feature CSV export with
+configuration and rejection reasons. Statistical anomaly detection and analysis
+reports remain planned for later phases.
 
 中文安装说明见 [用户指南](docs/USER_GUIDE.md)。需求见 [PRD.md](PRD.md)，
 阶段进度和真实测试状态见 [TASKS.md](TASKS.md)。
@@ -83,6 +85,12 @@ repository is pushed to GitHub and the workflow completes successfully.
 4. Choose CSV upload to analyze your own file; select the timestamp column,
    channels and **explicit units**. EuRoC-style IMU headers are retained and can
    be mapped manually; numeric timestamps are required.
+5. Open **特征分析** (feature analysis), configure the window/step in samples and
+   submit the form. Inspect feature trends and download the complete feature CSV.
+   Three-axis magnitude adds a channel while preserving the original axes.
+6. Choose an original sample-row range for FFT/Welch. Irregular, duplicate,
+   reversed or invalid timestamps are rejected explicitly without interpolation.
+   A rejected spectrum does not discard the window's time-domain statistics.
 
 Generate local examples in Windows:
 
@@ -101,18 +109,23 @@ The generator refuses existing output files by default. The same files can be
 downloaded from the app. See [example instructions](examples/README.md) and the
 [actual example result](examples/EXAMPLE_RESULT.md).
 
+Reproduce Phase 2 computations with
+`python -X utf8 examples/analyze_features.py` using your virtual environment's
+interpreter. Outputs go to `examples/generated/phase2/`, with overwrite protection.
+See the [actual Phase 2 results](examples/PHASE2_RESULT.md).
+
 ## Dependencies and layout
 
-Runtime dependencies are Streamlit, pandas, NumPy and Plotly. Streamlit 1.65+
+Runtime dependencies are Streamlit, pandas, NumPy, SciPy and Plotly. Streamlit 1.65+
 provides the accessible chart/table names, session-scoped caches and tested upload
 interactions used here. `dev` adds pytest and ruff; the `analysis` extra adds
-SciPy/scikit-learn for later phases (`pip install -e ".[analysis,dev]"`).
+scikit-learn for Phase 3 (`pip install -e ".[analysis,dev]"`).
 Dependency ranges allow updates;
 they do not guarantee identical versions across machines. Later experiments must
 record installed versions and seeds alongside results.
 
-- `app.py`: Streamlit overview and signal explorer.
-- `src/runlens/`: independently callable CSV, quality, demo and plotting modules.
+- `app.py`: Streamlit overview, signals, window features and spectra.
+- `src/runlens/`: independently callable CSV, quality, features, demo and plotting modules.
 - `tests/`: numerical, input-validation, plot and interactive upload tests.
 - `examples/`: fixed-seed synthetic generator and actual example result.
 - `docs/`: Chinese guide and implementation plan.
@@ -121,7 +134,7 @@ record installed versions and seeds alongside results.
 ## Roadmap and limitations
 
 1. Phase 1 (implemented locally): CSV mapping, signals, quality checks and labeled examples.
-2. Phase 2: windowed time-domain features, FFT/Welch and feature export.
+2. Phase 2 (implemented locally): time-domain features, FFT/Welch and feature export.
 3. Phase 3: robust statistical rules, candidate intervals, then Isolation Forest.
 4. Phase 4: reproducible comparisons and report export from actual runs.
 5. Phase 5: full documentation, boundary tests and verified CI before v0.1.0.
@@ -137,7 +150,16 @@ Oversized plot ranges are rejected without downsampling. The UI shows at most
 50 issue markers, 500 evidence rows and 1,000 detail rows; core results retain all
 issues. Invalid timestamps are reported but cannot be placed on the time axis.
 Finite-only channel statistics use population standard deviation (`ddof=0`).
-There is no statistical spike detection, FFT, feature/report export or accuracy
+Features are sample-weighted; window size and step are sample counts, not seconds.
+Results are limited to 50,000 window/channel records and 20 million cumulative
+window values. Feature tables show 1,000 records, while CSV retains the full result.
+The default sampling tolerance is `1e-6` relative to the median interval. A relaxed
+tolerance is an explicit approximation, not a repair. FFT amplitude uses a
+rectangular window; Welch uses periodic Hann with 50% overlap. Global mean removal
+defaults on. PSD integral is `sum(PSD) * Δf` in signal units squared; spectral
+energy estimate is that integral times `N/fs`, in signal units squared × seconds.
+It is not mechanical energy. Definitions and resolution limits are in the guide.
+There is no statistical spike detection, analysis-report export or accuracy
 measurement yet. Linux/macOS require actual CI results before verification claims.
 
 ## License
