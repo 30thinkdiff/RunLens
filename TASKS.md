@@ -1,9 +1,67 @@
 # RunLens 任务与验证状态
 
-当前阶段：**Phase 2 — 窗口特征与频谱（已完成 Windows 本地验收）**。
-用户已确认进入 Phase 2；完成后等待确认 Phase 3。
+当前阶段：**Phase 3 — 异常候选与真实记录回归（已完成 Windows 本地验收）**。
+用户已确认进入 Phase 3，要求优先增加真实数据测试；完成后等待确认 Phase 4。
 
-## Phase 2
+## Phase 3
+
+- [x] 阅读已有实现和要求，保存分阶段计划，保留用户技能及原有生成数据。
+- [x] 独立 anomaly.py、不可变 DetectionConfig 与 DetectionResult。
+- [x] MAD 参考中位数/鲁棒尺度、显式最小尺度、MAD=0 禁用和逐行状态。
+- [x] 参考/检测区间强制不重叠，有限训练样本计数、参数/版本/来源记录。
+- [x] IF 联合原始通道输入，参考拟合缩放和模型、随机种子、阈值与数值范围处理。
+- [x] 相邻候选合并，正常/无效行及重复/逆序/异常间隔打断区间。
+- [x] 候选区间 CSV、逐行分数 CSV、标准 JSON 配置/基准/计时导出。
+- [x] Streamlit 检测表单、参考/检测范围、状态、候选选择和局部图/阈值。
+- [x] “异常检测”与“信号浏览”保留质量断线并添加青色候选高亮。
+- [x] scikit-learn 运行依赖安装，版本更新 0.0.4。
+- [x] 核查 UCI 官方来源与 CC BY 4.0，保留 27 KB 原始 LP1 小样本及独立许可说明。
+- [x] 真实记录原样/明确扰动副本回归；完整事件划分，构造时间轴明确标注。
+- [x] 真实数据复现脚本、实际数量/计时、跨平台指令及局限文档。
+- [x] 原始数据 SHA 检查、Git -text 属性保留原始字节；不运行下载包中程序。
+- [x] 全套 pytest、ruff、格式和依赖检查通过；prompt.md 未改动。
+- [x] 只将本阶段代码/小样本/文档/测试进行本地 Git 归档，不推送或发布。
+
+### Phase 3 最终验收
+
+2026-10-09，Windows，本项目 `.venv` 的 CPython 3.11.9：
+
+| 检查 | 实际结果 |
+| --- | --- |
+| 核心测试先行 | 实现前因缺少 runlens.anomaly 失败，符合预期 |
+| `python -m pytest` | **163 passed in 64.60s** |
+| `python -m ruff check .` | All checks passed |
+| `python -m ruff format --check .` | 通过 |
+| `python -m pip check` | No broken requirements found |
+| `python -m runlens --version` | RunLens 0.0.4 |
+| 真实数据复现脚本 | 实际生成原样/注入副本、候选/分数 CSV 与配置/汇总 JSON |
+| 原始真实 fixture | 官方下载原始 SHA-256 不变，27,345 字节 |
+| 原始 prompt.md | SHA-256 与前阶段一致，未改动 |
+| Linux/macOS CI | **未运行**；未配置 Git 远程 |
+
+原有 117 项测试保留通过；新增 46 项：检测器数值/特殊分布/无效值/参考隔离、
+已知 IMU 尖峰、区间/高亮限制、CSV/JSON、界面交互、真实数据离线回归和
+脚本覆盖保护。其中 8 项直接使用真实测量，另有真实 CSV 上传与示例脚本回归。
+既检验原样实际输入，也验证显式注入尖峰/缺失值，不把不带真值的候选当准确率。
+
+真实记录：UCI Robot Execution Failures LP1，88 个事件 / 1320 个六轴力/力矩行。
+前十个 normal 事件参考（0–149），余下事件完整留出（150–1319）。
+MAD 阈值 3.5、尺度下限 1：3720 条行×通道候选 / 548 区间；
+IF auto、100 棵树、参考实际 150 行、种子 42：1012 个联合行候选 / 126 区间。
+这只是候选数量，存在正常工况变化触发，不声称真实故障准确率。
+第 150 行六轴值注入为 10000 后，两种方法均触发；原样该行未触发。
+完整实际运行时间、参数与局限见 [PHASE3_RESULT.md](examples/PHASE3_RESULT.md)。
+
+数据许可 [CC BY 4.0](THIRD_PARTY_NOTICES.md) 与项目 MIT 分开，原始 SHA：
+`e146de5aeaffd864f0e57ce2fe0b58e98582c3e808e6c0e8deb9b25a54ef0cb5`。
+此真实记录不是 IMU，且没有实测逐点时间戳；定位时钟明确构造，
+不用于真实采样率/物理频率结论。EuRoC 官方端点连接或访问受限，本轮未完成该实验。
+
+运行版本：RunLens 0.0.4、Streamlit 1.65.0、scikit-learn 1.9.1、SciPy 1.17.1、
+Plotly 6.9.0、pandas 3.0.6、NumPy 2.4.6、pytest 8.4.2、ruff 0.16.10。
+尚未进行人工浏览器视觉检查、完整分类指标或跨平台 CI 验收。
+
+## Phase 2（历史记录，已完成）
 
 - [x] 检查 Phase 1、原始要求与 Git 状态，保存阶段计划。
 - [x] 添加独立 features.py、窗口/频谱配置和结果结构。
@@ -123,7 +181,7 @@ pandas 3.0.6、NumPy 2.4.6、pytest 8.4.2、ruff 0.16.10。
 
 - [x] Phase 1 功能：CSV 导入/映射、相对时间、质量检查、Plotly 曲线、合成数据与标签。
 - [x] Phase 2：窗口特征、三轴模长、FFT/Welch、特征 CSV 导出。
-- [ ] Phase 3：MAD、候选区间、Isolation Forest 与拟合/评估分离。
+- [x] Phase 3：MAD、候选区间、Isolation Forest 与拟合/检测分离、真实记录回归。
 - [ ] Phase 4：可复现实验、评价单位、方法比较、真实计时、结构化报告。
 - [ ] Phase 5：完整边界测试、文档与课程报告提纲、CI 验收、v0.1.0。
 
@@ -133,15 +191,18 @@ pandas 3.0.6、NumPy 2.4.6、pytest 8.4.2、ruff 0.16.10。
 - 已下载并验证 Python Software Foundation 签名的官方 Python 3.11.9
   安装包，安装到被忽略的 `.tools/python311/`，创建 `.venv/`。
   原有 Python 与 PATH 保持原配置；IDE 应选择 `.venv/Scripts/python.exe`。
-- 已安装并直接声明 Streamlit、pandas、NumPy、Plotly、SciPy；
-  analysis 可选依赖组中的 scikit-learn 留待 Phase 3，尚未安装或验证。
+- 已安装并直接声明 Streamlit、pandas、NumPy、Plotly、SciPy、scikit-learn；
+  analysis extra 保留为空兼容组，dev 组提供测试/检查工具。
 - 未配置远程，不能触发 GitHub Actions。Linux/macOS 尚未验证。
 - CSV 上限 20 MiB / 100000 行 / 64 列；图最多 20000 行 / 8 通道。
   超出绘图限制时需缩小范围，不自动抽稀。UI 表格和标记也有明确显示上限。
 - 中位数间隔基准在多数间隔异常或分段采样率时可能不能代表期望频率。
 - 窗口结果最多 50000 条窗口×通道记录、累计处理量最多 2000 万个信号值。
   采样相对容差默认 1e-6，放宽后是显式近似假设；谱能量估计不代表机械能。
-- 尚无统计异常检测、完整报告导出；不发布 v0.1.0。
+- MAD/IF 逐点候选已实现，评分最多 500000 条；不直接使用窗口特征。
+- 完整评价/方法比较和分析报告待 Phase 4；不发布 v0.1.0。
+- 后续测试优先真实机器人记录与明确注入副本，保留公式单元测试；
+  独立事件按事件划分，无逐点真值不报告逐点准确率，无实测时钟不报告物理频率。
 
 ## Phase 0 验证记录（历史）
 
@@ -164,5 +225,6 @@ Streamlit 1.65.0、pytest 8.4.2、ruff 0.16.10、pip 24.0。
 上述命令均由 `.venv` 中的解释器执行。UI 通过 Streamlit AppTest 执行，
 未执行人工浏览器视觉检查。没有在本阶段测量分析性能或检测准确率。
 
-下一阶段建议：确认后进入 Phase 3，先实现中位数/MAD 和候选区间，再增加
-Isolation Forest；处理 MAD=0、拟合/评估分离，并记录方法、参数和分数定义。
+下一阶段建议：确认后进入 Phase 4。以真实记录为主建立按完整事件划分的
+可复现实验、预先定义评价单位与标签含义、比较方法和阈值，再生成实际报告；
+如能取得具有实测时间戳的 EuRoC 或用户机器人日志，增加真实 IMU 流程验证。

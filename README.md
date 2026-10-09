@@ -3,14 +3,15 @@
 A cross-platform toolkit for robot time-series data analysis, feature extraction,
 and anomaly detection.
 
-**Status: Phase 2 — window features and spectral analysis.** Version `0.0.3`
+**Status: Phase 3 — anomaly candidates with real robot regressions.** Version `0.0.4`
 supports UTF-8 CSV upload, explicit timestamp/channel mapping, relative time in
 s/ms/us/ns, interactive Plotly signals, and a quality report with row-level evidence.
 The default example is clearly labeled **Synthetic Data** and needs no download.
 It also supports sample-based sliding windows, nine time-domain statistics,
 optional three-axis magnitude, FFT/Welch spectra, and feature CSV export with
-configuration and rejection reasons. Statistical anomaly detection and analysis
-reports remain planned for later phases.
+configuration and rejection reasons. MAD and Isolation Forest fit only on a
+disjoint reference interval, produce candidate intervals, and export scores,
+candidates and configuration. Full evaluation and analysis reports remain planned.
 
 中文安装说明见 [用户指南](docs/USER_GUIDE.md)。需求见 [PRD.md](PRD.md)，
 阶段进度和真实测试状态见 [TASKS.md](TASKS.md)。
@@ -79,7 +80,7 @@ repository is pushed to GitHub and the workflow completes successfully.
 1. Start the app. The default Synthetic Data contains periodic IMU signals, noise,
    two injected spikes, duplicate/reversed timestamps, a large interval and a missing value.
 2. Inspect the overview and quality evidence; each rule reports its original sample
-   rows, channel and threshold. Spikes are reference injections, not yet detected.
+   rows, channel and threshold. Injected spikes have separate reference labels.
 3. Switch to signal exploration, choose channels and a relative time range. Lines
    break at invalid samples and timing defects, with separate axes per channel.
 4. Choose CSV upload to analyze your own file; select the timestamp column,
@@ -91,6 +92,10 @@ repository is pushed to GitHub and the workflow completes successfully.
 6. Choose an original sample-row range for FFT/Welch. Irregular, duplicate,
    reversed or invalid timestamps are rejected explicitly without interpolation.
    A rejected spectrum does not discard the window's time-domain statistics.
+7. Open **异常检测** (anomaly detection), choose MAD or Isolation Forest, and
+   select disjoint reference/detection row ranges. Submit, inspect fitting and
+   skipped-row evidence, select a candidate for local plots, and export CSV/JSON.
+   Cyan highlights also appear in signal exploration after a successful run.
 
 Generate local examples in Windows:
 
@@ -114,18 +119,37 @@ Reproduce Phase 2 computations with
 interpreter. Outputs go to `examples/generated/phase2/`, with overwrite protection.
 See the [actual Phase 2 results](examples/PHASE2_RESULT.md).
 
+Reproduce Phase 3 on real robot measurements (no network required):
+
+```powershell
+# Windows PowerShell
+.\.venv\Scripts\python.exe -X utf8 examples/analyze_anomalies.py
+```
+
+```bash
+# Linux / macOS
+.venv/bin/python examples/analyze_anomalies.py
+```
+
+The small attributed [UCI Robot Execution Failures LP1 fixture](tests/fixtures/robot_execution_failures/README.md)
+has 88 real force/torque trials and is separately CC BY 4.0 licensed. Tests use
+unchanged recordings and explicitly perturbed copies, alongside numerical unit
+contracts. The file has no measured sample timestamps: the converted CSV's
+`synthetic_time_s` is a declared plotting convention, not physical timing evidence.
+Fit/detection splits preserve whole trial IDs. See [actual Phase 3 results](examples/PHASE3_RESULT.md).
+
 ## Dependencies and layout
 
-Runtime dependencies are Streamlit, pandas, NumPy, SciPy and Plotly. Streamlit 1.65+
+Runtime dependencies are Streamlit, pandas, NumPy, SciPy, scikit-learn and Plotly. Streamlit 1.65+
 provides the accessible chart/table names, session-scoped caches and tested upload
-interactions used here. `dev` adds pytest and ruff; the `analysis` extra adds
-scikit-learn for Phase 3 (`pip install -e ".[analysis,dev]"`).
+interactions used here. `dev` adds pytest and ruff; `analysis` remains an empty
+compatibility extra because analysis dependencies are now required at runtime.
 Dependency ranges allow updates;
 they do not guarantee identical versions across machines. Later experiments must
 record installed versions and seeds alongside results.
 
-- `app.py`: Streamlit overview, signals, window features and spectra.
-- `src/runlens/`: independently callable CSV, quality, features, demo and plotting modules.
+- `app.py`: Streamlit overview, signals, features, spectra and anomaly candidates.
+- `src/runlens/`: independently callable CSV, quality, features, anomaly and plotting modules.
 - `tests/`: numerical, input-validation, plot and interactive upload tests.
 - `examples/`: fixed-seed synthetic generator and actual example result.
 - `docs/`: Chinese guide and implementation plan.
@@ -135,7 +159,7 @@ record installed versions and seeds alongside results.
 
 1. Phase 1 (implemented locally): CSV mapping, signals, quality checks and labeled examples.
 2. Phase 2 (implemented locally): time-domain features, FFT/Welch and feature export.
-3. Phase 3: robust statistical rules, candidate intervals, then Isolation Forest.
+3. Phase 3 (implemented locally): MAD, candidate intervals, Isolation Forest and real-data regressions.
 4. Phase 4: reproducible comparisons and report export from actual runs.
 5. Phase 5: full documentation, boundary tests and verified CI before v0.1.0.
 
@@ -159,11 +183,19 @@ rectangular window; Welch uses periodic Hann with 50% overlap. Global mean remov
 defaults on. PSD integral is `sum(PSD) * Δf` in signal units squared; spectral
 energy estimate is that integral times `N/fs`, in signal units squared × seconds.
 It is not mechanical energy. Definitions and resolution limits are in the guide.
-There is no statistical spike detection, analysis-report export or accuracy
-measurement yet. Linux/macOS require actual CI results before verification claims.
+MAD uses a reference median and `max(1.4826 * MAD, configured scale floor)`.
+Zero MAD with no explicit floor disables that channel; skipped rows are not normal
+decisions. IF scores multivariate raw channel vectors, not window features, and
+uses only reference-fitted max-absolute scaling. Both are point detectors and may
+flag legitimate changes in operating conditions. Candidate scores are not fault
+probabilities, and score/count units differ across per-channel MAD and joint IF.
+Scoring is limited to 500,000 records, with no imputation or clipping.
+There is no analysis-report export or validated accuracy measurement yet.
+Linux/macOS require actual CI results before verification claims.
 
 ## License
 
 Original project code is licensed under [MIT](LICENSE). Dependencies retain their
-own licenses. Public datasets are not bundled; their redistribution terms must be
-checked before adding any data.
+own licenses. The small real robot test fixture is separately **CC BY 4.0**;
+attribution and provenance are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Large public datasets and private user logs are not bundled.

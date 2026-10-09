@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from runlens import __version__
+from runlens.anomaly import candidates_csv, detect_anomalies, detection_json, scores_csv
 from runlens.demo import generate_demo
 from runlens.features import (
     SPECTRAL_FEATURES,
@@ -20,9 +21,14 @@ from runlens.features import (
     feature_csv,
 )
 from runlens.io import DataValidationError, prepare_dataset, read_csv
-from runlens.plotting import MAX_MARKERS, MAX_PLOT_CHANNELS, build_signal_figure
+from runlens.plotting import (
+    MAX_MARKERS,
+    MAX_PLOT_CHANNELS,
+    build_candidate_figure,
+    build_signal_figure,
+)
 from runlens.quality import check_quality
-from runlens.schemas import ImportConfig, SpectralConfig, WindowConfig
+from runlens.schemas import DetectionConfig, ImportConfig, SpectralConfig, WindowConfig
 
 
 @st.cache_data(ttl=600, max_entries=3, scope="session", show_spinner=False)
@@ -57,11 +63,18 @@ def cached_features(payload, import_config, window_config, source_name, axes, na
     return result, feature_csv(result)
 
 
+@st.cache_data(ttl=600, max_entries=2, scope="session", show_spinner=False)
+def cached_detection(payload, import_config, detection_config, source_name):
+    dataset = prepare_dataset(read_csv(payload), import_config, source_name)
+    result = detect_anomalies(dataset, detection_config)
+    return result, candidates_csv(result), scores_csv(result), detection_json(result)
+
+
 st.set_page_config(
     page_title="RunLens", page_icon=":material/analytics:", layout="wide"
 )
 st.title("RunLens")
-st.caption(f"Robot time-series explorer · v{__version__} · Phase 2")
+st.caption(f"Robot time-series explorer · v{__version__} · Phase 3")
 
 with st.sidebar:
     st.header("数据与配置")
@@ -151,6 +164,7 @@ if st.session_state.get("feature_identity") != feature_identity:
     st.session_state["feature_identity"] = feature_identity
     st.session_state.pop("feature_result", None)
     st.session_state.pop("feature_csv", None)
+    st.session_state.pop("detection_output", None)
 rate = summary["sample_rate_hz"]
 valid_times = dataset.time_s[np.isfinite(dataset.time_s)]
 lo, hi = float(np.min(valid_times)), float(np.max(valid_times))
@@ -170,8 +184,16 @@ st.caption(
 st.caption(
     "采样频率 = 1 / 有效相邻正间隔中位数；仅描述时间戳，不保证真实传感器采样率。"
 )
+if timestamp_column == "synthetic_time_s":
+    st.warning(
+        "此字段标注为 synthetic_time_s；LP1 示例使用的是构造时间轴，"
+        "仅供导入和定位，不可解释为真实采样率或物理频率。"
+    )
 view = st.segmented_control(
-    "查看", ["数据概览", "信号浏览", "特征分析"], default="数据概览", key="view"
+    "查看",
+    ["数据概览", "信号浏览", "特征分析", "异常检测"],
+    default="数据概览",
+    key="view",
 )
 
 if view in (None, "数据概览"):
@@ -238,13 +260,23 @@ elif view == "信号浏览":
         st.warning("请选择至少一个绘图通道。")
     else:
         try:
-            figure = build_signal_figure(
-                dataset, report, tuple(plot_channels), time_range
-            )
+            detection_output = st.session_state.get("detection_output")
+            if detection_output is None:
+                figure = build_signal_figure(
+                    dataset, report, tuple(plot_channels), time_range
+                )
+            else:
+                figure = build_candidate_figure(
+                    dataset,
+                    report,
+                    detection_output[0],
+                    tuple(plot_channels),
+                    time_range,
+                )
             st.plotly_chart(
                 figure,
                 key="signals",
-                alt="所选通道随相对时间的信号曲线，质量问题处断线并标记",
+                alt="所选通道的原始信号、质量断线与已计算的候选区间",
             )
         except ValueError as exc:
             st.warning(str(exc))
@@ -253,6 +285,8 @@ elif view == "信号浏览":
         "红色：间隔；紫色：逆序；橙色：重复；灰色：通道无效值。"
         f"最多 {MAX_MARKERS} 个可定位标记。"
     )
+    if st.session_state.get("detection_output") is not None:
+        st.caption("青色虚线/阴影：最近一次成功提交检测得到的候选，最多 50 个区间。")
     st.caption(
         f"当前范围包含 {int(mask.sum()):,} 个有效时间戳行；"
         "其他无效时间戳行仍保留在原始表与质量报告。"
@@ -270,7 +304,7 @@ elif view == "信号浏览":
     st.dataframe(
         detail.head(1000), alt="当前时间范围内前 1000 个样本行的原始字段及相对时间"
     )
-else:
+elif view == "特征分析":
     st.subheader("窗口特征")
     st.caption(
         "按原始样本行滑动窗口，窗口和步长单位为样本；不排序或插值。"
@@ -490,4 +524,253 @@ else:
             "主频取非 DC FFT 最大幅值所在频率格点；常数去均值后主频为空。"
             "PSD 积分单位为信号单位²；频谱能量估计 = PSD 积分 × N/fs，"
             "单位为信号单位²·s，不能解释为机械能。频谱指标描述预处理后的信号。"
+        )
+else:
+    st.subheader("异常候选检测")
+    st.info(
+        "在指定参考区间拟合，在不重叠的检测区间评分。"
+        "请确认参考区间适合代表期望工况；算法不能保证它正常。"
+        "结果是统计候选，不是硬件故障、根因或故障概率。"
+    )
+    n = len(dataset.signals)
+    if n < 6:
+        st.warning(
+            "至少需要 6 行才能分出 5 个 MAD 参考样本和检测样本；请使用更长记录。"
+        )
+        st.stop()
+    split = max(5, min(400, n // 5))
+    with st.form("detection_config"):
+        method = st.selectbox(
+            "检测方法", ["mad", "isolation_forest"], key="detection_method"
+        )
+        fit_range = st.slider(
+            "参考样本行区间（包含两端）",
+            0,
+            n - 1,
+            (0, split - 1),
+            key=f"fit_range_{identity}",
+        )
+        detect_range = st.slider(
+            "检测样本行区间（包含两端）",
+            0,
+            n - 1,
+            (split, n - 1),
+            key=f"detect_range_{identity}",
+        )
+        with st.container(horizontal=True):
+            threshold = st.number_input(
+                "MAD 分数阈值", 0.1, 100.0, 3.5, step=0.5, key="mad_threshold"
+            )
+            scale_floor = st.number_input(
+                "最小鲁棒尺度（信号单位）",
+                0.0,
+                value=0.0,
+                format="%.6g",
+                key="scale_floor",
+            )
+        st.caption(
+            "MAD = median(abs(x − 参考中位数))；尺度 = max(1.4826 × MAD, 最小尺度)。"
+            "默认 MAD=0 时不评分；最小尺度须根据量化精度与单位明确设置。"
+            "不同量纲通道可分批检测。"
+        )
+        with st.container(horizontal=True):
+            contamination_mode = st.selectbox(
+                "IF 阈值设置", ["auto", "指定 contamination"], key="contamination_mode"
+            )
+            contamination = st.number_input(
+                "IF contamination", 0.001, 0.5, 0.02, step=0.01, key="contamination"
+            )
+            seed = st.number_input("IF 随机种子", 0, 2**32 - 1, 42, key="if_seed")
+        with st.container(horizontal=True):
+            trees = st.number_input("IF 树数量", 10, 300, 100, key="if_trees")
+            max_samples = st.number_input(
+                "IF 每棵树样本上限", 16, 1024, 256, key="if_max_samples"
+            )
+        st.caption(
+            "IF 将所选通道组成逐行多变量向量，需要至少 16 个完整有限参考行。"
+            "按参考区间拟合最大绝对值缩放；分数 = −decision_function，阈值为 0。"
+            "contamination 只控制训练阈值，不是故障发生比例。"
+        )
+        submitted = st.form_submit_button("运行检测", key="run_detection")
+    if submitted:
+        try:
+            detection_config = DetectionConfig(
+                method=method,
+                fit_range=tuple(fit_range),
+                detect_range=tuple(detect_range),
+                threshold=float(threshold),
+                scale_floor=float(scale_floor),
+                contamination="auto"
+                if contamination_mode == "auto"
+                else float(contamination),
+                n_estimators=int(trees),
+                max_samples=int(max_samples),
+                random_state=int(seed),
+                gap_factor=float(gap_factor),
+            )
+            with st.spinner("拟合参考区间并检测…"):
+                st.session_state["detection_output"] = cached_detection(
+                    payload, config, detection_config, source_name
+                )
+        except ValueError as exc:
+            st.session_state.pop("detection_output", None)
+            st.error(str(exc))
+    output = st.session_state.get("detection_output")
+    if output is None:
+        st.caption("设置参数并点击“运行检测”；修改表单后请重新提交。")
+    else:
+        result, candidate_bytes, score_bytes, config_bytes = output
+        st.caption(
+            f"已计算：{result.config.method}；参考 {result.config.fit_range}，"
+            f"检测 {result.config.detect_range}，"
+            f"间隔倍数 {result.config.gap_factor:g}。"
+            "评价单位为原始采样行；MAD 每通道评分，IF 每行联合评分，分数不可直接比较。"
+        )
+        with st.container(horizontal=True):
+            st.metric(
+                "候选点记录", int(result.metadata["candidate_points"]), border=True
+            )
+            st.metric("候选区间", len(result.candidates), border=True)
+            st.download_button(
+                "候选区间 CSV",
+                candidate_bytes,
+                "runlens_candidates.csv",
+                "text/csv",
+                key="download_candidates",
+            )
+            st.download_button(
+                "逐行分数 CSV",
+                score_bytes,
+                "runlens_scores.csv",
+                "text/csv",
+                key="download_scores",
+            )
+            st.download_button(
+                "检测配置 JSON",
+                config_bytes,
+                "runlens_detection.json",
+                "application/json",
+                key="download_detection_config",
+            )
+        st.subheader("参考基准与评分状态")
+        st.dataframe(
+            result.baselines, alt="仅用参考区间拟合的中位数、MAD、尺度或 IF 缩放"
+        )
+        st.dataframe(
+            result.scores.status.value_counts().rename("records").reset_index(),
+            alt="有效评分、无效值、零 MAD 和参考不足等状态计数",
+        )
+        skipped = int(result.scores.status.ne("ok").sum())
+        if skipped:
+            st.warning(
+                f"{skipped} 条评分记录被跳过；查看状态与基准，不把跳过当作正常。"
+            )
+        st.subheader("候选区间列表")
+        st.caption(
+            "行号从 0 开始、包含端点。仅合并相邻候选行，"
+            "正常/无效行与异常时间间隔打断区间。"
+            "列表与选择框显示前 1000 条；CSV 保留全部记录。"
+        )
+        st.dataframe(
+            result.candidates.head(1000), alt="候选区间的原始行、时间、方法、分数和阈值"
+        )
+        if result.candidates.empty:
+            st.info("本次参数下没有可定位候选区间；不代表系统无故障。")
+        options = [None, *result.candidates.head(1000).index.tolist()]
+        candidate_index = st.selectbox(
+            "定位候选区间",
+            options,
+            format_func=lambda index: (
+                "自选样本范围"
+                if index is None
+                else f"#{index} · {result.candidates.loc[index, 'channel']} · "
+                f"行 {result.candidates.loc[index, 'row_start']}–"
+                f"{result.candidates.loc[index, 'row_end']}"
+            ),
+            key=f"candidate_choice_{identity}_{hashlib.sha256(config_bytes).hexdigest()[:12]}",
+        )
+        if candidate_index is None:
+            first, last = st.slider(
+                "局部原始样本行范围",
+                0,
+                n - 1,
+                (
+                    result.config.detect_range[0],
+                    min(
+                        result.config.detect_range[0] + 999,
+                        result.config.detect_range[1],
+                    ),
+                ),
+                key=f"candidate_range_{identity}",
+            )
+            default_plot_channels = channels[:3]
+        else:
+            event = result.candidates.loc[candidate_index]
+            first = max(0, int(event.row_start) - 25)
+            last = min(n - 1, int(event.row_end) + 25)
+            default_plot_channels = (
+                [event.channel] if result.config.method == "mad" else channels[:3]
+            )
+        selected_channels = st.multiselect(
+            "候选绘图通道",
+            channels,
+            default=default_plot_channels,
+            max_selections=MAX_PLOT_CHANNELS,
+            key=f"candidate_channels_{identity}_{candidate_index}_{tuple(channels)}",
+        )
+        context_times = dataset.time_s[first : last + 1]
+        finite_times = context_times[np.isfinite(context_times)]
+        if selected_channels and len(finite_times):
+            try:
+                figure = build_candidate_figure(
+                    dataset,
+                    report,
+                    result,
+                    tuple(selected_channels),
+                    (float(np.min(finite_times)), float(np.max(finite_times))),
+                    candidate_index=candidate_index,
+                )
+                st.plotly_chart(
+                    figure,
+                    key="candidate_signals",
+                    alt="候选区间附近的原始信号及质量断线，青色标记统计候选",
+                )
+            except ValueError as exc:
+                st.warning(str(exc))
+        else:
+            st.info("请选择绘图通道，并确保局部范围有有效时间戳。")
+        st.caption(
+            f"局部行范围 {first}–{last}；信号图按这些行覆盖的时间范围显示，"
+            "重复时间可对应其他原始行，请结合悬停行号和详情。最多高亮 50 个候选区间。"
+        )
+        local_scores = result.scores.loc[result.scores.row.between(first, last)]
+        if len(local_scores) <= 20_000:
+            figure = go.Figure()
+            for channel, block in local_scores.groupby("channel", sort=False):
+                figure.add_trace(
+                    go.Scatter(
+                        x=block.row.tolist(),
+                        y=block.score.tolist(),
+                        mode="markers",
+                        name=channel,
+                    )
+                )
+            score_threshold = (
+                result.config.threshold if result.config.method == "mad" else 0
+            )
+            figure.add_hline(y=score_threshold, line_dash="dash")
+            figure.update_layout(
+                xaxis_title="原始样本行", yaxis_title="异常分数（非概率）"
+            )
+            st.plotly_chart(
+                figure, key="anomaly_scores", alt="局部原始行的异常分数与实际阈值"
+            )
+        else:
+            st.info("局部分数图超过 20,000 条评分记录，请缩小范围；不自动抽稀。")
+        st.dataframe(
+            dataset.raw.iloc[first : last + 1].head(1000),
+            alt="所选候选附近前 1000 行原始测量",
+        )
+        st.dataframe(
+            local_scores.head(1000), alt="局部评分与未评分原因，显示前 1000 条"
         )

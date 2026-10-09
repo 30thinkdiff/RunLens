@@ -4,7 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from runlens.schemas import Dataset, QualityReport
+from runlens.schemas import Dataset, DetectionResult, QualityReport
 
 MAX_PLOT_ROWS = 20_000
 MAX_PLOT_CHANNELS = 8
@@ -136,4 +136,55 @@ def build_signal_figure(
         margin={"t": 40, "b": 40},
         hovermode="closest",
     )
+    return fig
+
+
+def build_candidate_figure(
+    dataset: Dataset,
+    quality: QualityReport,
+    result: DetectionResult,
+    channels: tuple[str, ...],
+    time_range: tuple[float, float],
+    *,
+    candidate_index: int | None = None,
+) -> go.Figure:
+    """Add candidate highlights while retaining quality breaks and row hover data."""
+    fig = build_signal_figure(dataset, quality, channels, time_range)
+    candidates = result.candidates
+    if candidate_index is not None:
+        if candidate_index not in candidates.index:
+            raise ValueError("所选候选区间不存在。")
+        candidates = candidates.loc[[candidate_index]]
+    lo, hi = time_range
+    marked = 0
+    for event in candidates.itertuples(index=False):
+        if event.end_s < lo or event.start_s > hi:
+            continue
+        if result.config.method == "mad" and event.channel not in channels:
+            continue
+        if marked >= MAX_MARKERS:
+            break
+        for row, channel in enumerate(channels, 1):
+            if result.config.method == "mad" and event.channel != channel:
+                continue
+            if event.start_s == event.end_s:
+                fig.add_vline(
+                    x=event.start_s,
+                    line_color="#008B8B",
+                    line_width=2,
+                    line_dash="dash",
+                    row=row,
+                    col=1,
+                )
+            else:
+                fig.add_vrect(
+                    x0=max(event.start_s, lo),
+                    x1=min(event.end_s, hi),
+                    fillcolor="#008B8B",
+                    opacity=0.2,
+                    line_width=0,
+                    row=row,
+                    col=1,
+                )
+        marked += 1
     return fig

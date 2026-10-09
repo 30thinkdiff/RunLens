@@ -222,3 +222,85 @@ def test_reducing_channels_turns_off_unavailable_magnitude(app):
     result = compute_features(app, 256, 128)
     assert result.table["channel"].unique().tolist() == ["accel_x"]
     assert not app.error
+
+
+def anomaly_view(app):
+    app.segmented_control(key="view").set_value("异常检测").run()
+    assert not app.exception
+    return app
+
+
+def run_detection(app):
+    app.button(key="run_detection").click().run()
+    assert not app.exception
+    return app.session_state["detection_output"]
+
+
+def test_mad_detection_ui_export_and_candidate_focus(app):
+    upload(app, b"t,x\n0,0\n1,1\n2,2\n3,1\n4,0\n5,20\n6,1\n7,1\n8,1\n")
+    anomaly_view(app)
+    result, candidates, scores, metadata = run_detection(app)
+    assert result.candidates.row_start.tolist() == [5]
+    assert pd.read_csv(BytesIO(candidates)).row_start.tolist() == [5]
+    assert pd.read_csv(BytesIO(scores)).row.tolist() == [5, 6, 7, 8]
+    assert json.loads(metadata)["config"]["fit_range"] == [0, 4]
+    choice = widget(app, "selectbox", "定位候选区间")
+    choice.set_value(0).run()
+    assert not app.exception
+    plots = {
+        chart.key: json.loads(chart.proto.spec) for chart in app.get("plotly_chart")
+    }
+    assert any(
+        shape["line"]["color"] == "#008B8B"
+        for shape in plots["candidate_signals"]["layout"]["shapes"]
+    )
+
+
+def test_overlap_detection_ranges_show_error_and_clear_old_result(app):
+    anomaly_view(app)
+    run_detection(app)
+    widget(app, "slider", "参考样本行区间（包含两端）").set_value((0, 500))
+    app.button(key="run_detection").click().run()
+    assert not app.exception
+    assert "不能重叠" in app.error[0].value
+    assert "detection_output" not in app.session_state
+
+
+def test_if_ui_and_mapping_change_clear_detection(app):
+    anomaly_view(app)
+    app.selectbox(key="detection_method").select("isolation_forest")
+    result, _, _, metadata = run_detection(app)
+    assert result.config.method == "isolation_forest"
+    assert result.scores.threshold.eq(0).all()
+    assert result.baselines.fit_count.eq(400).all()
+    assert json.loads(metadata)["scaling"].endswith("reference only")
+    widget(app, "multiselect", "分析通道").set_value(["accel_x"]).run()
+    assert not app.exception
+    assert "detection_output" not in app.session_state
+
+
+def test_short_detection_ui_explains_requirement(app):
+    upload(app, b"t,x\n0,1\n")
+    anomaly_view(app)
+    assert any("至少需要 6 行" in item.value for item in app.warning)
+    assert not app.button
+
+
+def test_real_robot_csv_upload_and_detection(app):
+    from runlens.robot_example import prepare_robot_example
+
+    fixture = (
+        Path(__file__).parent / "fixtures" / "robot_execution_failures" / "lp1.data"
+    )
+    dataset, metadata = prepare_robot_example(fixture)
+    upload(app, dataset.raw.to_csv(index=False).encode("utf-8"), "real_robot_lp1.csv")
+    anomaly_view(app)
+    widget(app, "slider", "参考样本行区间（包含两端）").set_value((0, 149))
+    widget(app, "slider", "检测样本行区间（包含两端）").set_value((150, 1319))
+    app.number_input(key="scale_floor").set_value(1.0)
+    result, _, _, _ = run_detection(app)
+    assert result.config.fit_range == tuple(metadata["fit_range"])
+    assert result.baselines.fit_count.eq(150).all()
+    assert result.scores.row.ge(150).all()
+    assert set(result.scores.channel) == {"Fx", "Fy", "Fz", "Tx", "Ty", "Tz"}
+    assert any("构造时间轴" in item.value for item in app.warning)

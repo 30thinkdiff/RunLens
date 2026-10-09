@@ -1,5 +1,8 @@
 * text=auto
+/.gitattributes text eol=lf
 *.py text eol=lf
 *.toml text eol=lf
 *.md text eol=lf
 *.yml text eol=lf
+# Keep the attributed dataset's verified bytes on every checkout platform.
+tests/fixtures/robot_execution_failures/lp1.data -text
