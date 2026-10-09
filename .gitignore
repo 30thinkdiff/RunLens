@@ -15,6 +15,7 @@ dist/
 htmlcov/
 
 # Private configuration and experimental data
+/prompt.md
 .env
 .env.*
 !.env.example
