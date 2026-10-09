@@ -1,6 +1,6 @@
 # RunLens 任务与验证状态
 
-当前阶段：**Phase 5 — 完善与发布验收（Windows 本地通过，三平台 CI 待执行）**。
+当前阶段：**Phase 5 — 完善与发布验收（首轮三平台、0.1.0 本地验收通过）**。
 用户已确认继续 Phase 5，并提供 GitHub 远程。继续优先真实测量测试。
 
 ## Phase 5
@@ -14,12 +14,18 @@
 - [x] 固定真实实验复跑，导出 23 文件，四组 TP/FP/TN/FN 与 Phase 4 一致。
 - [x] 用户指南、课程报告/技术交底提纲、变更记录、验收映射与复现版本约束。
 - [x] 原始 prompt.md / LP1 SHA 不变；远程 origin 已连接并确认初始为空。
-- [ ] 核对提交范围，推送代码；GitHub Actions 三平台实际执行成功。
-- [ ] 升级 0.1.0 并验收该版本准确提交，发布 v0.1.0。
+- [x] 核对提交范围，推送代码；GitHub Actions 三平台实际执行成功。
+- [x] 升级 0.1.0，本地完整 219 passed in 83.25s；lint/格式/依赖/wheel/真实实验通过。
+
+正式发布需要该 0.1.0 提交自身三平台 CI 成功；标签指向通过的准确提交。
+最终 SHA、CI 链接与包附件记录在
+[v0.1.0 发布页](https://github.com/30thinkdiff/RunLens/releases/tag/v0.1.0)。
 
 详细证据见 [PHASE5_RESULT.md](examples/PHASE5_RESULT.md) 和
 [VALIDATION.md](docs/VALIDATION.md)。初次完整检查暴露旧版本页面清理遗漏报告，
 修复后专项与完整测试通过。未进行人工浏览器视觉检查。
+首轮三平台证据：[运行 37951954582](https://github.com/30thinkdiff/RunLens/actions)，
+提交 `history-rewritten`，三个 job 均实际 success。
 
 ## Phase 4
 
@@ -258,7 +264,7 @@ pandas 3.0.6、NumPy 2.4.6、pytest 8.4.2、ruff 0.16.10。
 - [x] Phase 2：窗口特征、三轴模长、FFT/Welch、特征 CSV 导出。
 - [x] Phase 3：MAD、候选区间、Isolation Forest 与拟合/检测分离、真实记录回归。
 - [x] Phase 4：可复现实验、评价单位、方法比较、真实计时、结构化报告。
-- [ ] Phase 5：完整边界测试、文档与课程报告提纲、CI 验收、v0.1.0。
+- [x] Phase 5 功能/文档/完整测试与首轮三平台验收；v0.1.0 发布证据见发布页。
 
 ## 当前环境与已知问题
 

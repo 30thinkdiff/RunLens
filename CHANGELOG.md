@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0 — first validated release (2026-10-09)
+
+CSV quality inspection, windowed time/frequency features, reference-only MAD/Isolation
+Forest candidates, real-data evaluation and source-checked JSON/Markdown/HTML reports.
+Includes attributed offline LP1 data, 219 tests, reproducible experiment scripts,
+course/technical outlines and three-platform CI artifacts. The release tag points
+only to a commit passing Windows, Ubuntu and macOS CI; see the GitHub release for
+the final commit and run link. No PyPI publication or hardware fault diagnosis.
+
 ## 0.0.6 — Phase 5 hardening (2026-10-09)
 
 - Validate configuration types and freeze channel/range lists; reject text flags and boolean numeric parameters.
@@ -8,7 +17,7 @@
 - Reject stale or remapped results in standalone reports, including empty feature results; report schema 2.
 - Add real-data boundary regressions, course/technical disclosure outlines and an evidence-based validation checklist.
 - Prepare Python 3.11 CI on Windows, Ubuntu and macOS with saved test/real-experiment artifacts.
-- No detection threshold tuning; retain Phase 4 counts and limitations. v0.1.0 awaits actual three-platform acceptance.
+- No detection threshold tuning; retain Phase 4 counts and limitations. This validation preceded v0.1.0.
 
 ## 0.0.5 — Phase 4 (2026-10-09)
 

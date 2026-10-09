@@ -1,7 +1,8 @@
 # Phase 5 实际验收记录
 
 2026-10-09，RunLens 0.0.6。本地 Windows AMD64 / CPython 3.11.9 已验收，
-GitHub 仓库 origin 已连接；三平台 CI 和 v0.1.0 发布尚待实际执行。
+GitHub 仓库 origin 已连接；0.0.6 首轮三平台 CI 已实际成功。
+0.1.0 版本提交须重新通过本地与三平台检查，才创建标签和发布页。
 
 | 检查 | 实际结果 |
 | --- | --- |
@@ -38,5 +39,20 @@ wheel SHA-256（0.0.6）：
 固定协议和许可见 [PHASE4_RESULT.md](PHASE4_RESULT.md)、[第三方说明](../THIRD_PARTY_NOTICES.md)。
 
 复现命令、平台证据与发布清单见 [VALIDATION.md](../docs/VALIDATION.md)。
+首次实际 CI：[运行 37951954582](https://github.com/30thinkdiff/RunLens/actions)，
+提交 `history-rewritten`；Windows/Ubuntu/macOS 三 job 均成功。
+实际下载三个平台 artifact 验证：每份 JUnit 219 项、0 失败/错误/跳过，四组计数及
+覆盖率与本地一致；JUnit 耗时 Windows 79.602s、Ubuntu 78.624s、macOS 63.526s。
+实际环境 Windows CPython 3.11.9 AMD64、Linux 3.11.17 x86_64、Darwin 3.11.9 arm64，
+运行直接依赖与 requirements-verified.txt 一致。记录的是本次 runner 范围，不代表
+所有系统发行版与架构；跨系统速度差不能解释为算法性能改进。
+最终 v0.1.0 发布页附该版本实际 CI 与准确标签提交，不能移用首轮版本的验收结论。
+
+0.1.0 本地重新验收：**219 passed in 83.25s**，ruff/格式/pip check 通过，版本命令
+输出 RunLens 0.1.0；独立 wheel 实测流程仍为 1320 行、528 特征、7020 评分、schema 2，
+固定真实实验重新导出 23 文件，计数一致。0.1.0 wheel SHA-256：
+`311167680652b6dda6640eb405df32c61035a98bb4cdd9143a256424403b5473`。
+正式标签在该版本自身三平台 CI 成功后创建；最终记录见
+[发布页](https://github.com/30thinkdiff/RunLens/releases/tag/v0.1.0)。
 课程与技术材料见 [课程提纲](../docs/COURSE_REPORT_OUTLINE.md)、
 [技术交底提纲](../docs/TECHNICAL_DISCLOSURE_OUTLINE.md)。

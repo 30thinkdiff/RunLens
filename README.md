@@ -3,7 +3,7 @@
 A cross-platform toolkit for robot time-series data analysis, feature extraction,
 and anomaly detection.
 
-**Status: Phase 5 — validation, documentation and release preparation.** Version `0.0.6`
+**Status: Phase 5 — validated core and v0.1.0 release.** Version `0.1.0`
 supports UTF-8 CSV upload, explicit timestamp/channel mapping, relative time in
 s/ms/us/ns, interactive Plotly signals, and a quality report with row-level evidence.
 The default example is clearly labeled **Synthetic Data** and needs no download.

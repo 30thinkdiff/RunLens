@@ -2,7 +2,7 @@
 
 ## 当前能做什么
 
-Phase 5（0.0.6）已提供 CSV 导入、时间戳/通道/单位映射、基础质量报告、
+Phase 5（0.1.0）已提供 CSV 导入、时间戳/通道/单位映射、基础质量报告、
 Plotly 曲线、滑动窗口特征、三轴模长、FFT/Welch、MAD/Isolation Forest、
 候选区间定位与特征/候选/分数 CSV、检测配置 JSON 导出。
 默认内置 Synthetic Data，可直接演示，也可下载 CSV、注入标签与生成配置。
