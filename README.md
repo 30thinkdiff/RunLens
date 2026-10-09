@@ -3,7 +3,7 @@
 A cross-platform toolkit for robot time-series data analysis, feature extraction,
 and anomaly detection.
 
-**Status: Phase 3 — anomaly candidates with real robot regressions.** Version `0.0.4`
+**Status: Phase 4 — reproducible experiments and analysis reports.** Version `0.0.5`
 supports UTF-8 CSV upload, explicit timestamp/channel mapping, relative time in
 s/ms/us/ns, interactive Plotly signals, and a quality report with row-level evidence.
 The default example is clearly labeled **Synthetic Data** and needs no download.
@@ -11,7 +11,10 @@ It also supports sample-based sliding windows, nine time-domain statistics,
 optional three-axis magnitude, FFT/Welch spectra, and feature CSV export with
 configuration and rejection reasons. MAD and Isolation Forest fit only on a
 disjoint reference interval, produce candidate intervals, and export scores,
-candidates and configuration. Full evaluation and analysis reports remain planned.
+candidates and configuration. Reports export as JSON, Markdown and simple HTML.
+Fixed experiments compare MAD and IF using real whole-trial labels and separately
+labeled perturbations on held-out real normal measurements. Metrics include
+precision, recall, F1, FPR, coverage, confusion counts and measured runtime.
 
 中文安装说明见 [用户指南](docs/USER_GUIDE.md)。需求见 [PRD.md](PRD.md)，
 阶段进度和真实测试状态见 [TASKS.md](TASKS.md)。
@@ -96,6 +99,9 @@ repository is pushed to GitHub and the workflow completes successfully.
    select disjoint reference/detection row ranges. Submit, inspect fitting and
    skipped-row evidence, select a candidate for local plots, and export CSV/JSON.
    Cyan highlights also appear in signal exploration after a successful run.
+8. Open **实验与报告** (experiments and reports), generate a current-data snapshot,
+   or run the explicitly separate bundled robot experiment. Uploaded CSVs have
+   no supplied ground truth, so their snapshots do not contain accuracy metrics.
 
 Generate local examples in Windows:
 
@@ -160,7 +166,7 @@ record installed versions and seeds alongside results.
 1. Phase 1 (implemented locally): CSV mapping, signals, quality checks and labeled examples.
 2. Phase 2 (implemented locally): time-domain features, FFT/Welch and feature export.
 3. Phase 3 (implemented locally): MAD, candidate intervals, Isolation Forest and real-data regressions.
-4. Phase 4: reproducible comparisons and report export from actual runs.
+4. Phase 4 (implemented locally): fixed real-data comparisons and actual report export.
 5. Phase 5: full documentation, boundary tests and verified CI before v0.1.0.
 
 RunLens reports observable quality issues; these are not diagnoses of hardware
@@ -190,8 +196,26 @@ uses only reference-fitted max-absolute scaling. Both are point detectors and ma
 flag legitimate changes in operating conditions. Candidate scores are not fault
 probabilities, and score/count units differ across per-channel MAD and joint IF.
 Scoring is limited to 500,000 records, with no imputation or clipping.
-There is no analysis-report export or validated accuracy measurement yet.
+Report tables contain bounded previews (20 rows); full feature/score/candidate CSVs
+are separate. Whole-trial and injected-point metrics must not be mixed. The fixed
+LP1 split has only 11 held-out normal trials and can produce substantial false
+positives; injected strong spikes do not establish natural fault accuracy.
 Linux/macOS require actual CI results before verification claims.
+
+Reproduce all four experiment categories (quality, analytical features, method
+comparison, real-data analysis), with 23 attributed artifacts and overwrite protection:
+
+```powershell
+.\.venv\Scripts\python.exe -X utf8 examples/run_experiments.py
+```
+
+```bash
+.venv/bin/python examples/run_experiments.py
+```
+
+Outputs: `examples/generated/phase4/`; use `--output` for a new directory.
+The actual measurements, fixed splits, point/trial predictions and report results
+are described in [PHASE4_RESULT.md](examples/PHASE4_RESULT.md).
 
 ## License
 

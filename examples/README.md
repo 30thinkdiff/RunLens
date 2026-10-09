@@ -1,7 +1,7 @@
 # 示例数据
 
 本节 IMU 示例为 **Synthetic Data**，不是实际机器人记录。
-文末另有明确来源的 Phase 3 真实机器人力/力矩示例。
+文末另有明确来源的 Phase 3 真实机器人力/力矩示例与 Phase 4 实验报告。
 默认种子 42、2000 个样本、名义频率 100 Hz，包含六个 IMU 通道、
 周期信号、标准差 0.03 的噪声、两处尖峰、一个大间隔、重复与逆序
 时间戳以及一个缺失通道值。加速度单位 m/s²，角速度单位 rad/s。
@@ -89,3 +89,20 @@ Linux/macOS：
 
 实际结果与参数见 [PHASE3_RESULT.md](PHASE3_RESULT.md)，来源、原始 SHA 和许可见
 [fixture README](../tests/fixtures/robot_execution_failures/README.md)。
+
+## Phase 4 固定实验与报告
+
+```powershell
+.\.venv\Scripts\python.exe -X utf8 examples/run_experiments.py
+```
+
+```bash
+.venv/bin/python examples/run_experiments.py
+```
+
+四类实验：真实测量副本的时间质量规则、解析常数/正弦特征、真实正常背景的明确注入点
+比较、真实 LP1 完整事件分类。MAD 与 IF 参数固定，不根据留出标签调优。
+完整产物输出到 `examples/generated/phase4/`；23 个文件包含报告 JSON/Markdown/HTML、
+指标、逐单位预测、划分、四份测量表、真实特征，以及每种任务/方法的评分/候选/配置。
+默认拒绝覆盖任一目标，用 `--output` 保留独立运行。实际结果及误报局限见
+[PHASE4_RESULT.md](PHASE4_RESULT.md)。点与事件指标不可混用，注入不是自然故障真值。

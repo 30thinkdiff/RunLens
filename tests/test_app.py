@@ -236,6 +236,104 @@ def run_detection(app):
     return app.session_state["detection_output"]
 
 
+def reports_view(app):
+    app.segmented_control(key="view").set_value("实验与报告").run()
+    assert not app.exception
+    return app
+
+
+def generate_report(app):
+    app.button(key="generate_report").click().run()
+    assert not app.exception
+    return app.session_state["analysis_report_output"]
+
+
+def test_report_is_explicit_and_unlabeled_metrics_remain_unavailable(app):
+    reports_view(app)
+    assert "analysis_report_output" not in app.session_state
+    snapshot, encoded, markdown, html = generate_report(app)
+    assert snapshot["evaluation"] is None
+    assert snapshot["features"] is None and snapshot["detection"] is None
+    assert snapshot == json.loads(encoded)
+    assert markdown.startswith(b"# RunLens") and html.startswith(b"<!doctype html>")
+    assert (
+        len(
+            [
+                button
+                for button in app.get("download_button")
+                if "报告" in button.proto.label
+            ]
+        )
+        == 3
+    )
+
+
+def test_real_uploaded_report_includes_submitted_results_and_no_clock_claim(app):
+    from runlens.robot_example import prepare_robot_example
+
+    fixture = Path(__file__).parent / "fixtures/robot_execution_failures/lp1.data"
+    real, _ = prepare_robot_example(fixture)
+    upload(app, real.raw.to_csv(index=False).encode("utf-8"), "robot.csv")
+    features_view(app)
+    compute_features(app, 15, 15)
+    anomaly_view(app)
+    widget(app, "slider", "参考样本行区间（包含两端）").set_value((0, 149))
+    widget(app, "slider", "检测样本行区间（包含两端）").set_value((150, 1319))
+    run_detection(app)
+    reports_view(app)
+    snapshot, _, _, _ = generate_report(app)
+    assert snapshot["source"]["name"] == "robot.csv"
+    assert snapshot["source"]["time_axis"].startswith("constructed")
+    assert snapshot["features"]["record_count"] == 528
+    assert snapshot["detection"]["metadata"]["config"]["fit_range"] == [0, 149]
+    assert snapshot["evaluation"] is None
+
+
+def test_report_invalidates_on_quality_mapping_and_file_changes(app):
+    reports_view(app)
+    generate_report(app)
+    app.number_input(key="gap_factor").set_value(4).run()
+    assert "analysis_report_output" not in app.session_state
+    generate_report(app)
+    widget(app, "selectbox", "时间戳单位（请明确指定）").select("ms").run()
+    assert "analysis_report_output" not in app.session_state
+    generate_report(app)
+    upload(app, b"t,x\n0,1\n1,2\n")
+    assert "analysis_report_output" not in app.session_state
+
+
+def test_submitting_new_analysis_invalidates_report(app):
+    reports_view(app)
+    generate_report(app)
+    features_view(app)
+    compute_features(app, 256, 128)
+    assert "analysis_report_output" not in app.session_state
+    reports_view(app)
+    snapshot, _, _, _ = generate_report(app)
+    assert snapshot["features"] is not None
+    anomaly_view(app)
+    run_detection(app)
+    assert "analysis_report_output" not in app.session_state
+
+
+def test_real_experiment_has_separate_units_and_keeps_uploaded_identity(app):
+    upload(app, b"t,x\n0,1\n1,2\n", "personal.csv")
+    reports_view(app)
+    app.radio(key="report_mode").set_value("内置真实记录实验").run()
+    assert "experiment_output" not in app.session_state
+    app.button(key="run_experiments").click().run()
+    assert not app.exception
+    experiment, encoded, _, _ = app.session_state["experiment_output"]
+    assert set(experiment.metrics.evaluation_unit) == {"trial", "point"}
+    assert len(experiment.metrics) == 4
+    assert experiment.report["data_provenance"]["dataset"].startswith("UCI")
+    assert json.loads(encoded)["reference_checks"]["known_features"]["passed"]
+    app.radio(key="report_mode").set_value("当前数据分析报告").run()
+    snapshot, _, _, _ = generate_report(app)
+    assert snapshot["source"]["name"] == "personal.csv"
+    assert snapshot["evaluation"] is None
+
+
 def test_mad_detection_ui_export_and_candidate_focus(app):
     upload(app, b"t,x\n0,0\n1,1\n2,2\n3,1\n4,0\n5,20\n6,1\n7,1\n8,1\n")
     anomaly_view(app)

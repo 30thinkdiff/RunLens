@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -11,6 +12,7 @@ import streamlit as st
 from runlens import __version__
 from runlens.anomaly import candidates_csv, detect_anomalies, detection_json, scores_csv
 from runlens.demo import generate_demo
+from runlens.experiments import run_robot_experiments
 from runlens.features import (
     SPECTRAL_FEATURES,
     TIME_FEATURES,
@@ -28,6 +30,7 @@ from runlens.plotting import (
     build_signal_figure,
 )
 from runlens.quality import check_quality
+from runlens.reporting import analysis_report, html_bytes, json_bytes, markdown_bytes
 from runlens.schemas import DetectionConfig, ImportConfig, SpectralConfig, WindowConfig
 
 
@@ -70,11 +73,25 @@ def cached_detection(payload, import_config, detection_config, source_name):
     return result, candidates_csv(result), scores_csv(result), detection_json(result)
 
 
+@st.cache_data(ttl=600, max_entries=2, scope="session", show_spinner=False)
+def cached_experiments(fixture_path: str, fixture_sha256: str):
+    fixture = Path(fixture_path)
+    if hashlib.sha256(fixture.read_bytes()).hexdigest() != fixture_sha256:
+        raise ValueError("实验数据发生变化，请重新提交。")
+    result = run_robot_experiments(fixture)
+    return (
+        result,
+        json_bytes(result.report),
+        markdown_bytes(result.report),
+        html_bytes(result.report),
+    )
+
+
 st.set_page_config(
     page_title="RunLens", page_icon=":material/analytics:", layout="wide"
 )
 st.title("RunLens")
-st.caption(f"Robot time-series explorer · v{__version__} · Phase 3")
+st.caption(f"Robot time-series explorer · v{__version__} · Phase 4")
 
 with st.sidebar:
     st.header("数据与配置")
@@ -165,6 +182,10 @@ if st.session_state.get("feature_identity") != feature_identity:
     st.session_state.pop("feature_result", None)
     st.session_state.pop("feature_csv", None)
     st.session_state.pop("detection_output", None)
+report_context = (feature_identity, float(gap_factor))
+if st.session_state.get("report_context") != report_context:
+    st.session_state["report_context"] = report_context
+    st.session_state.pop("analysis_report_output", None)
 rate = summary["sample_rate_hz"]
 valid_times = dataset.time_s[np.isfinite(dataset.time_s)]
 lo, hi = float(np.min(valid_times)), float(np.max(valid_times))
@@ -191,7 +212,7 @@ if timestamp_column == "synthetic_time_s":
     )
 view = st.segmented_control(
     "查看",
-    ["数据概览", "信号浏览", "特征分析", "异常检测"],
+    ["数据概览", "信号浏览", "特征分析", "异常检测", "实验与报告"],
     default="数据概览",
     key="view",
 )
@@ -367,6 +388,7 @@ elif view == "特征分析":
         )
         submitted = st.form_submit_button("计算窗口特征", key="compute_features")
     if submitted:
+        st.session_state.pop("analysis_report_output", None)
         try:
             window_config = WindowConfig(
                 window_size=int(window_size),
@@ -525,7 +547,7 @@ elif view == "特征分析":
             "PSD 积分单位为信号单位²；频谱能量估计 = PSD 积分 × N/fs，"
             "单位为信号单位²·s，不能解释为机械能。频谱指标描述预处理后的信号。"
         )
-else:
+elif view == "异常检测":
     st.subheader("异常候选检测")
     st.info(
         "在指定参考区间拟合，在不重叠的检测区间评分。"
@@ -593,6 +615,7 @@ else:
         )
         submitted = st.form_submit_button("运行检测", key="run_detection")
     if submitted:
+        st.session_state.pop("analysis_report_output", None)
         try:
             detection_config = DetectionConfig(
                 method=method,
@@ -774,3 +797,153 @@ else:
         st.dataframe(
             local_scores.head(1000), alt="局部评分与未评分原因，显示前 1000 条"
         )
+
+else:
+    st.subheader("实验与报告")
+    report_mode = st.radio(
+        "报告内容",
+        ["当前数据分析报告", "内置真实记录实验"],
+        key="report_mode",
+        horizontal=True,
+    )
+    if report_mode == "当前数据分析报告":
+        st.caption(
+            "报告记录当前质量检查及已提交的特征、检测结果；未运行的步骤标为空。"
+            "当前数据未提供异常真值，因此不计算 precision、recall、F1 或 FPR。"
+            "报告内表格预览最多 20 条，完整 CSV 在对应分析页面下载。"
+        )
+        with st.form("analysis_report_form"):
+            submitted = st.form_submit_button("生成当前数据报告", key="generate_report")
+        if submitted:
+            try:
+                output = st.session_state.get("detection_output")
+                snapshot = analysis_report(
+                    dataset,
+                    report,
+                    features=st.session_state.get("feature_result"),
+                    detection=output[0] if output is not None else None,
+                    input_sha256=hashlib.sha256(payload).hexdigest(),
+                )
+                st.session_state["analysis_report_output"] = (
+                    snapshot,
+                    json_bytes(snapshot),
+                    markdown_bytes(snapshot),
+                    html_bytes(snapshot),
+                )
+            except ValueError as exc:
+                st.session_state.pop("analysis_report_output", None)
+                st.error(str(exc))
+        output = st.session_state.get("analysis_report_output")
+        if output is not None:
+            snapshot, report_json, report_md, report_html = output
+            st.caption(f"报告生成时间（UTC）：{snapshot['analyzed_at_utc']}")
+            with st.container(horizontal=True):
+                st.download_button(
+                    "下载报告 JSON",
+                    report_json,
+                    "runlens_report.json",
+                    "application/json",
+                    key="download_report_json",
+                )
+                st.download_button(
+                    "下载报告 Markdown",
+                    report_md,
+                    "runlens_report.md",
+                    "text/markdown",
+                    key="download_report_md",
+                )
+                st.download_button(
+                    "下载报告 HTML",
+                    report_html,
+                    "runlens_report.html",
+                    "text/html",
+                    key="download_report_html",
+                )
+            st.json(snapshot, expanded=False)
+        else:
+            st.info("点击生成报告；数据、映射、质量参数或已提交结果变化后需重新生成。")
+    else:
+        st.info(
+            "此实验使用仓库内 UCI LP1 真实六轴力/力矩记录，"
+            "独立于当前上传文件。"
+            "前十个 normal 完整事件参考；其余事件留出。原始数据许可 CC BY 4.0。"
+            "时间轴为构造时钟，测量单位未注明，不用于真实 IMU 频率结论。"
+        )
+        st.caption(
+            "固定参数：MAD 3.5、尺度下限 1；"
+            "IF auto、100 棵树、max_samples 256、种子 42。"
+            "事件标签按 normal/其他类别评价，任意候选点使事件为正；"
+            "注入任务只用留出正常事件，在三处六轴替换为 10000，按点评价人为替换检出。"
+            "不根据测试标签选参数；完整可评分点/事件才进入指标，覆盖率单独报告。"
+        )
+        with st.form("robot_experiment_form"):
+            submitted = st.form_submit_button("运行真实记录实验", key="run_experiments")
+        if submitted:
+            try:
+                fixture = (
+                    Path(__file__).resolve().parent
+                    / "tests/fixtures/robot_execution_failures/lp1.data"
+                )
+                fingerprint = hashlib.sha256(fixture.read_bytes()).hexdigest()
+                with st.spinner("运行固定划分实验并生成报告…"):
+                    st.session_state["experiment_output"] = cached_experiments(
+                        str(fixture), fingerprint
+                    )
+            except (OSError, ValueError) as exc:
+                st.session_state.pop("experiment_output", None)
+                st.error(f"真实记录实验未完成：{exc}")
+        output = st.session_state.get("experiment_output")
+        if output is not None:
+            experiment, report_json, report_md, report_html = output
+            st.caption(
+                f"实际运行时间戳（UTC）：{experiment.report['analyzed_at_utc']}；"
+                "重复提交可能复用 600 秒会话缓存。"
+            )
+            st.dataframe(
+                experiment.metrics,
+                alt="真实事件与注入点两个独立评价任务的混淆矩阵、指标、覆盖率和实际计时",
+            )
+            st.warning(
+                "事件指标与注入点指标不可混用。强尖峰注入结果不代表自然故障定位能力，候选不等于硬件诊断。"
+            )
+            with st.container(horizontal=True):
+                st.download_button(
+                    "实验 JSON",
+                    report_json,
+                    "robot_experiments.json",
+                    "application/json",
+                    key="download_experiment_json",
+                )
+                st.download_button(
+                    "实验 Markdown",
+                    report_md,
+                    "robot_experiments.md",
+                    "text/markdown",
+                    key="download_experiment_md",
+                )
+                st.download_button(
+                    "实验 HTML",
+                    report_html,
+                    "robot_experiments.html",
+                    "text/html",
+                    key="download_experiment_html",
+                )
+                st.download_button(
+                    "实验指标 CSV",
+                    experiment.metrics.to_csv(index=False).encode("utf-8"),
+                    "metrics.csv",
+                    "text/csv",
+                    key="download_experiment_metrics",
+                )
+                st.download_button(
+                    "逐单位预测 CSV",
+                    experiment.predictions.to_csv(index=False).encode("utf-8"),
+                    "predictions.csv",
+                    "text/csv",
+                    key="download_experiment_predictions",
+                )
+            st.json(experiment.report, expanded=False)
+            st.caption(
+                "完整测量、特征、评分和划分文件可运行 "
+                "examples/run_experiments.py 导出；见用户指南。"
+            )
