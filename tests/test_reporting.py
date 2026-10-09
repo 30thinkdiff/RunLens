@@ -88,3 +88,84 @@ def test_missing_optional_steps_are_explicit():
     snapshot = analysis_report(dataset, check_quality(dataset))
     assert snapshot["features"] is None and snapshot["detection"] is None
     assert "null" in markdown_bytes(snapshot).decode("utf-8")
+
+
+def test_stale_real_quality_and_features_are_rejected():
+    original, _ = prepare_robot_example(FIXTURE)
+    quality = check_quality(original)
+    features = extract_features(
+        original, WindowConfig(window_size=15, include_spectral=False)
+    )
+    changed = original.raw.copy()
+    changed.loc[0, "Fx"] = 10000
+    current = prepare_dataset(changed, original.config, original.source_name)
+    with pytest.raises(ValueError, match="质量.*不一致"):
+        analysis_report(current, quality)
+    with pytest.raises(ValueError, match="特征.*不一致"):
+        analysis_report(current, check_quality(current), features=features)
+
+
+def test_same_bytes_different_mapping_cannot_reuse_results():
+    from runlens.schemas import ImportConfig
+
+    dataset, meta = prepare_robot_example(FIXTURE)
+    quality = check_quality(dataset)
+    features = extract_features(
+        dataset, WindowConfig(window_size=15, include_spectral=False)
+    )
+    detection = detect_anomalies(
+        dataset,
+        DetectionConfig(
+            fit_range=tuple(meta["fit_range"]),
+            detect_range=tuple(meta["detect_range"]),
+            scale_floor=1,
+        ),
+    )
+    remapped = prepare_dataset(
+        dataset.raw,
+        ImportConfig("synthetic_time_s", ("Fx", "Fy"), "ms"),
+        dataset.source_name,
+    )
+    for old in ({"quality": quality}, {"features": features}, {"detection": detection}):
+        with pytest.raises(ValueError, match="不一致"):
+            analysis_report(
+                remapped,
+                old.get("quality", check_quality(remapped)),
+                features=old.get("features"),
+                detection=old.get("detection"),
+            )
+
+
+def test_empty_features_keep_provenance_and_cannot_be_reused_for_changed_data():
+    dataset, _ = prepare_robot_example(FIXTURE)
+    features = extract_features(dataset, WindowConfig(window_size=5000))
+    snapshot = analysis_report(dataset, check_quality(dataset), features=features)
+    assert snapshot["features"]["record_count"] == 0
+    assert snapshot["features"]["provenance"]["data_sha256"]
+    changed = dataset.raw.copy()
+    changed.loc[0, "Fx"] = 10000
+    other = prepare_dataset(changed, dataset.config)
+    with pytest.raises(ValueError):
+        analysis_report(other, check_quality(other), features=features)
+
+
+def test_real_csv_bom_crlf_and_lf_have_one_portable_identity():
+    from runlens.io import read_csv
+    from runlens.provenance import dataset_identity
+
+    dataset, _ = prepare_robot_example(FIXTURE)
+    lf = dataset.raw.to_csv(index=False, lineterminator="\n").encode("utf-8")
+    crlf = b"\xef\xbb\xbf" + lf.replace(b"\n", b"\r\n")
+    first = prepare_dataset(read_csv(lf), dataset.config)
+    second = prepare_dataset(read_csv(crlf), dataset.config)
+    assert dataset_identity(first) == dataset_identity(second)
+    assert dataset_identity(first)["fingerprint_format"].endswith("LF")
+
+
+def test_manual_result_without_provenance_requests_recalculation():
+    from dataclasses import replace
+
+    dataset, _ = prepare_robot_example(FIXTURE)
+    quality = check_quality(dataset)
+    with pytest.raises(ValueError, match="重新计算"):
+        analysis_report(dataset, replace(quality, provenance={}))

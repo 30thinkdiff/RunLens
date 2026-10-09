@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from runlens.io import numeric_values
+from runlens.provenance import dataset_identity
 from runlens.schemas import Dataset, QualityReport
 
 ISSUE_COLUMNS = [
@@ -195,4 +196,6 @@ def check_quality(dataset: Dataset, *, gap_factor: float = 3.0) -> QualityReport
             item["kind"] == "short_interval" for item in issues
         ),
     }
-    return QualityReport(summary, pd.DataFrame(stats), issue_table, gap_factor)
+    return QualityReport(
+        summary, pd.DataFrame(stats), issue_table, gap_factor, dataset_identity(dataset)
+    )

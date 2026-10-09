@@ -29,20 +29,25 @@ def read_csv(
     Paths refer to local files. Binary streams are read from their current position.
     Blank physical lines are ignored by CSV parsing; empty fields remain in the table.
     """
+    if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes <= 0:
+        raise DataValidationError("读取上限必须为正整数字节数。")
     try:
         if isinstance(source, (str, Path)):
             path = Path(source)
-            if path.stat().st_size > max_bytes:
-                raise DataValidationError("CSV 超过文件大小上限（20 MiB）。")
-            payload = path.read_bytes()
+            with path.open("rb") as stream:
+                payload = stream.read(max_bytes + 1)
         elif isinstance(source, bytes):
             payload = source
         else:
+            if not callable(getattr(source, "read", None)):
+                raise DataValidationError("来源须为本地路径、bytes 或二进制流。")
             payload = source.read(max_bytes + 1)
     except OSError as exc:
         raise DataValidationError(f"无法读取文件：{exc}") from exc
+    if not isinstance(payload, bytes):
+        raise DataValidationError("请提供二进制输入；文件使用 rb 模式打开。")
     if len(payload) > max_bytes:
-        raise DataValidationError("CSV 超过文件大小上限（20 MiB）。")
+        raise DataValidationError(f"CSV 超过文件大小上限（{max_bytes:,} 字节）。")
     try:
         text = payload.decode("utf-8-sig")
     except UnicodeDecodeError as exc:

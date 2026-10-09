@@ -2,6 +2,8 @@
 
 本节 IMU 示例为 **Synthetic Data**，不是实际机器人记录。
 文末另有明确来源的 Phase 3 真实机器人力/力矩示例与 Phase 4 实验报告。
+Phase 5 的边界、来源、wheel 与三平台验收见 [PHASE5_RESULT.md](PHASE5_RESULT.md)，
+固定实验使用独立目录 `examples/generated/phase5/experiment`，保留历史生成物。
 默认种子 42、2000 个样本、名义频率 100 Hz，包含六个 IMU 通道、
 周期信号、标准差 0.03 的噪声、两处尖峰、一个大间隔、重复与逆序
 时间戳以及一个缺失通道值。加速度单位 m/s²，角速度单位 rad/s。

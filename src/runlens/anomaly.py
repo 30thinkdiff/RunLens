@@ -1,6 +1,5 @@
 """Reference-fitted anomaly candidates, not calibrated hardware-fault diagnoses."""
 
-import hashlib
 import json
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -11,6 +10,7 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import IsolationForest
 
+from runlens.provenance import dataset_identity
 from runlens.schemas import Dataset, DetectionConfig, DetectionResult
 
 MAX_SCORE_ROWS = 500_000
@@ -280,16 +280,15 @@ def detect_anomalies(dataset: Dataset, config: DetectionConfig) -> DetectionResu
     for table in (scores, candidates):
         for name, value in provenance.items():
             table[name] = value
+    identity = dataset_identity(dataset)
     metadata = dict(
         **provenance,
         config=asdict(config),
         **details,
         evaluation_unit="original sample rows",
         score_direction="higher means more anomalous; no calibrated probability",
-        data_sha256=hashlib.sha256(
-            dataset.raw.to_csv(index=False).encode("utf-8")
-        ).hexdigest(),
-        fingerprint_format="normalized raw-table CSV, UTF-8",
+        **identity,
+        dataset_identity=identity,
         versions={
             name: version(name)
             for name in ("runlens", "numpy", "pandas", "scikit-learn")

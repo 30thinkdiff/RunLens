@@ -147,7 +147,7 @@ def run_robot_experiments(path: Path) -> ExperimentResult:
     feature_elapsed = perf_counter() - feature_started
     report = dict(
         report_type="fixed_robot_experiments",
-        report_schema_version=1,
+        report_schema_version=2,
         analyzed_at_utc=datetime.now(UTC).isoformat(),
         versions=environment_versions(),
         runtime=runtime_environment(),

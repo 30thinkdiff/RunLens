@@ -51,14 +51,20 @@ def cached_csv(payload: bytes) -> pd.DataFrame:
 
 @st.cache_data(ttl=600, max_entries=3, scope="session", show_spinner=False)
 def cached_analysis(
-    payload: bytes, config: ImportConfig, source_name: str, gap_factor: float
+    payload: bytes,
+    config: ImportConfig,
+    source_name: str,
+    gap_factor: float,
+    core_version: str,
 ):
     dataset = prepare_dataset(read_csv(payload), config, source_name)
     return dataset, check_quality(dataset, gap_factor=gap_factor)
 
 
 @st.cache_data(ttl=600, max_entries=3, scope="session", show_spinner=False)
-def cached_features(payload, import_config, window_config, source_name, axes, name):
+def cached_features(
+    payload, import_config, window_config, source_name, axes, name, core_version
+):
     dataset = prepare_dataset(read_csv(payload), import_config, source_name)
     result = extract_features(
         dataset, window_config, magnitude_axes=axes, magnitude_name=name
@@ -67,14 +73,16 @@ def cached_features(payload, import_config, window_config, source_name, axes, na
 
 
 @st.cache_data(ttl=600, max_entries=2, scope="session", show_spinner=False)
-def cached_detection(payload, import_config, detection_config, source_name):
+def cached_detection(
+    payload, import_config, detection_config, source_name, core_version
+):
     dataset = prepare_dataset(read_csv(payload), import_config, source_name)
     result = detect_anomalies(dataset, detection_config)
     return result, candidates_csv(result), scores_csv(result), detection_json(result)
 
 
 @st.cache_data(ttl=600, max_entries=2, scope="session", show_spinner=False)
-def cached_experiments(fixture_path: str, fixture_sha256: str):
+def cached_experiments(fixture_path: str, fixture_sha256: str, core_version: str):
     fixture = Path(fixture_path)
     if hashlib.sha256(fixture.read_bytes()).hexdigest() != fixture_sha256:
         raise ValueError("实验数据发生变化，请重新提交。")
@@ -91,7 +99,7 @@ st.set_page_config(
     page_title="RunLens", page_icon=":material/analytics:", layout="wide"
 )
 st.title("RunLens")
-st.caption(f"Robot time-series explorer · v{__version__} · Phase 4")
+st.caption(f"Robot time-series explorer · v{__version__} · Phase 5")
 
 with st.sidebar:
     st.header("数据与配置")
@@ -170,18 +178,21 @@ if not channels:
     st.stop()
 try:
     config = ImportConfig(timestamp_column, tuple(channels), unit)
-    dataset, report = cached_analysis(payload, config, source_name, float(gap_factor))
+    dataset, report = cached_analysis(
+        payload, config, source_name, float(gap_factor), __version__
+    )
 except ValueError as exc:
     st.error(str(exc))
     st.stop()
 
 summary = report.summary
-feature_identity = (identity, config, source_name)
+feature_identity = (identity, config, source_name, __version__)
 if st.session_state.get("feature_identity") != feature_identity:
     st.session_state["feature_identity"] = feature_identity
     st.session_state.pop("feature_result", None)
     st.session_state.pop("feature_csv", None)
     st.session_state.pop("detection_output", None)
+    st.session_state.pop("analysis_report_output", None)
 report_context = (feature_identity, float(gap_factor))
 if st.session_state.get("report_context") != report_context:
     st.session_state["report_context"] = report_context
@@ -410,6 +421,7 @@ elif view == "特征分析":
                     source_name,
                     tuple(axes) if use_magnitude else None,
                     magnitude_name,
+                    __version__,
                 )
             st.session_state["feature_result"] = result
             st.session_state["feature_csv"] = csv_bytes
@@ -633,7 +645,7 @@ elif view == "异常检测":
             )
             with st.spinner("拟合参考区间并检测…"):
                 st.session_state["detection_output"] = cached_detection(
-                    payload, config, detection_config, source_name
+                    payload, config, detection_config, source_name, __version__
                 )
         except ValueError as exc:
             st.session_state.pop("detection_output", None)
@@ -887,7 +899,7 @@ else:
                 fingerprint = hashlib.sha256(fixture.read_bytes()).hexdigest()
                 with st.spinner("运行固定划分实验并生成报告…"):
                     st.session_state["experiment_output"] = cached_experiments(
-                        str(fixture), fingerprint
+                        str(fixture), fingerprint, __version__
                     )
             except (OSError, ValueError) as exc:
                 st.session_state.pop("experiment_output", None)

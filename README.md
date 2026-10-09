@@ -3,7 +3,7 @@
 A cross-platform toolkit for robot time-series data analysis, feature extraction,
 and anomaly detection.
 
-**Status: Phase 4 — reproducible experiments and analysis reports.** Version `0.0.5`
+**Status: Phase 5 — validation, documentation and release preparation.** Version `0.0.6`
 supports UTF-8 CSV upload, explicit timestamp/channel mapping, relative time in
 s/ms/us/ns, interactive Plotly signals, and a quality report with row-level evidence.
 The default example is clearly labeled **Synthetic Data** and needs no download.
@@ -74,9 +74,12 @@ Linux / macOS:
 .venv/bin/python -m pip check
 ```
 
-The CI workflow runs Python 3.11 installation, tests and lint checks on
-`windows-latest`, `ubuntu-latest`, and `macos-latest`. CI has not run until this
-repository is pushed to GitHub and the workflow completes successfully.
+The CI workflow runs Python 3.11 installation, tests, lint and fixed real-data
+experiments on `windows-latest`, `ubuntu-latest`, and `macos-latest`, preserving
+JUnit and experiment artifacts. Actual platform and release evidence is recorded
+in [VALIDATION.md](docs/VALIDATION.md). To reproduce verified direct dependency
+versions, install with `pip install -c requirements-verified.txt -e ".[dev]"`.
+This constraints file does not lock every transitive dependency.
 
 ## Try the workflow
 
@@ -167,7 +170,17 @@ record installed versions and seeds alongside results.
 2. Phase 2 (implemented locally): time-domain features, FFT/Welch and feature export.
 3. Phase 3 (implemented locally): MAD, candidate intervals, Isolation Forest and real-data regressions.
 4. Phase 4 (implemented locally): fixed real-data comparisons and actual report export.
-5. Phase 5: full documentation, boundary tests and verified CI before v0.1.0.
+5. Phase 5: boundary hardening, source consistency, course outlines and release validation.
+
+Quality, feature and detection reports share a normalized UTF-8/LF table fingerprint
+and import mapping. A report rejects stale results even when identical CSV bytes
+are interpreted with different time units or channels. Recompute results after
+changing data or mapping. Core upgrades also invalidate cached page results.
+See the [course report outline](docs/COURSE_REPORT_OUTLINE.md),
+[technical disclosure outline](docs/TECHNICAL_DISCLOSURE_OUTLINE.md),
+[changelog](CHANGELOG.md) and [Phase 5 results](examples/PHASE5_RESULT.md).
+The wheel contains the Python core; clone the full repository to run `app.py`
+and access the bundled real-data fixture.
 
 RunLens reports observable quality issues; these are not diagnoses of hardware
 faults. Nominal sample rate is the reciprocal of the median positive interval

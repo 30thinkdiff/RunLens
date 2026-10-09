@@ -268,6 +268,19 @@ def test_report_is_explicit_and_unlabeled_metrics_remain_unavailable(app):
     )
 
 
+def test_core_upgrade_clears_results_from_previous_version(app):
+    features_view(app)
+    compute_features(app, 256, 128)
+    reports_view(app)
+    generate_report(app)
+    current = app.session_state["feature_identity"]
+    app.session_state["feature_identity"] = (*current[:-1], "previous-version")
+    app.run()
+    assert not app.exception
+    assert "feature_result" not in app.session_state
+    assert "analysis_report_output" not in app.session_state
+
+
 def test_real_uploaded_report_includes_submitted_results_and_no_clock_claim(app):
     from runlens.robot_example import prepare_robot_example
 

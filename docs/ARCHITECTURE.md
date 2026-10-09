@@ -1,4 +1,4 @@
-# RunLens Phase 4 架构
+# RunLens Phase 5 架构
 
 核心模块可以独立于 Streamlit 导入和测试。当前数据流如下：
 
@@ -24,6 +24,7 @@ CSV bytes / pathlib.Path
 | 模块 | 职责 |
 | --- | --- |
 | schemas.py | 导入/窗口/频谱/检测配置与各类结果对象 |
+| provenance.py | 统一 UTF-8/LF 原始值表指纹和导入映射身份 |
 | io.py | CSV 校验、数值分类、精确相对时间、原始数据保留 |
 | quality.py | 重复/逆序/间隔规则、无效值统计、常数观察 |
 | plotting.py | Plotly 图形、按通道纵轴、过滤与断线、候选高亮 |
@@ -37,6 +38,11 @@ CSV bytes / pathlib.Path
 | app.py | 用户输入、会话缓存和结果显示，不实现核心算法 |
 
 ## 关键数据约定
+
+- QualityReport、FeatureResult、DetectionResult 共用 dataset_identity。
+  原始值表显式 LF/UTF-8 序列化；时间列、时间单位和通道映射也属于身份。
+  报告 schema 2 要求每份已提供结果与当前身份一致；缺少来源时要求重新计算。
+  配置列表规范化为 tuple，文件读取上限在读取时执行，核心版本参与页面缓存键。
 
 - 原始样本行号从 0 开始；区间两端均包含。原始 CSV 字段值不被修改。
 - CSV 时间列先解析为 Decimal。起点为首个有效时间戳，求差后才转浮点秒。

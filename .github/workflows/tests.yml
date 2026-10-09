@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  PYTHONUTF8: "1"
+
 jobs:
   test:
     strategy:
@@ -15,13 +18,14 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.11"
       - name: Install project and development tools
-        run: python -m pip install -e ".[dev]"
+        run: python -m pip install -c requirements-verified.txt -e ".[dev]"
       - name: Check dependency compatibility
         run: python -m pip check
       - name: Lint
@@ -29,4 +33,14 @@ jobs:
       - name: Check formatting
         run: python -m ruff format --check .
       - name: Test
-        run: python -m pytest
+        run: python -m pytest --junitxml=examples/generated/ci/junit.xml
+      - name: Run fixed experiments on bundled real measurements
+        run: python examples/run_experiments.py --output examples/generated/ci/experiment
+      - name: Preserve test and real-experiment evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: runlens-${{ matrix.os }}-${{ github.sha }}
+          path: examples/generated/ci/
+          if-no-files-found: warn
+          retention-days: 14

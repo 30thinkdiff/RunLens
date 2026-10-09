@@ -1,6 +1,5 @@
 """Portable, bounded analysis snapshots and escaped standalone report exports."""
 
-import hashlib
 import html
 import json
 import platform
@@ -11,6 +10,7 @@ from importlib.metadata import version
 import numpy as np
 import pandas as pd
 
+from runlens.provenance import dataset_identity
 from runlens.schemas import Dataset, DetectionResult, FeatureResult, QualityReport
 
 PREVIEW_ROWS = 20
@@ -60,15 +60,29 @@ def analysis_report(
     input_sha256: str | None = None,
 ) -> dict:
     """Include submitted results only; unlabeled datasets have no accuracy metrics."""
-    fingerprint = hashlib.sha256(
-        dataset.raw.to_csv(index=False).encode("utf-8")
-    ).hexdigest()
-    if detection is not None and detection.metadata["data_sha256"] != fingerprint:
-        raise ValueError("检测结果与当前数据不一致，请重新检测后生成报告。")
+    identity = dataset_identity(dataset)
+    for label, provenance in (
+        ("质量", getattr(quality, "provenance", None)),
+        (
+            "特征",
+            getattr(features, "provenance", None) if features is not None else identity,
+        ),
+        (
+            "检测",
+            detection.metadata.get("dataset_identity")
+            if detection is not None
+            else identity,
+        ),
+    ):
+        if provenance != identity:
+            raise ValueError(
+                f"{label}结果缺少来源或与当前数据/映射不一致，请重新计算。"
+            )
+    fingerprint = identity["data_sha256"]
     constructed = dataset.config.timestamp_column == "synthetic_time_s"
     report = dict(
         report_type="current_dataset_analysis",
-        report_schema_version=1,
+        report_schema_version=2,
         analyzed_at_utc=datetime.now(UTC).isoformat(),
         versions=environment_versions(),
         runtime=runtime_environment(),
@@ -76,6 +90,7 @@ def analysis_report(
             name=dataset.source_name,
             input_bytes_sha256=input_sha256,
             normalized_table_sha256=fingerprint,
+            fingerprint_format=identity["fingerprint_format"],
             row_count=len(dataset.raw),
             time_axis="constructed plotting clock; not measured"
             if constructed
@@ -89,6 +104,7 @@ def analysis_report(
             else "positive adjacent interval median estimate",
         ),
         quality=dict(
+            provenance=quality.provenance,
             summary=quality.summary,
             gap_factor=quality.gap_factor,
             rule="large dt > positive median × factor; short 0 < dt < median / factor",
@@ -109,6 +125,7 @@ def analysis_report(
     )
     if features is not None:
         report["features"] = dict(
+            provenance=features.provenance,
             config=asdict(features.config),
             magnitude_axes=features.magnitude_axes,
             magnitude_name=features.magnitude_name,

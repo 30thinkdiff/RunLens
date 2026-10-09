@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from scipy import fft, signal
 
+from runlens.provenance import dataset_identity
 from runlens.schemas import (
     Dataset,
     FeatureResult,
@@ -43,6 +44,7 @@ MAX_FEATURE_ROWS = 50_000
 MAX_FEATURE_VALUES = 20_000_000
 FEATURE_COLUMNS = [
     "source_name",
+    "data_sha256",
     "timestamp_column",
     "time_unit",
     "timestamp_origin",
@@ -299,6 +301,7 @@ def extract_features(
 ) -> FeatureResult:
     """Retain time-domain features even when a window's spectrum is rejected."""
     config = config or WindowConfig()
+    identity = dataset_identity(dataset)
     signals = dataset.signals
     if magnitude_axes is not None:
         signals = add_vector_magnitude(signals, magnitude_axes, magnitude_name)
@@ -315,6 +318,7 @@ def extract_features(
         )
     metadata = {
         "source_name": dataset.source_name,
+        "data_sha256": identity["data_sha256"],
         "timestamp_column": dataset.config.timestamp_column,
         "time_unit": dataset.config.time_unit,
         "timestamp_origin": dataset.timestamp_origin,
@@ -390,6 +394,7 @@ def extract_features(
         config,
         magnitude_axes,
         magnitude_name,
+        identity,
     )
 
 

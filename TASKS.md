@@ -1,7 +1,25 @@
 # RunLens 任务与验证状态
 
-当前阶段：**Phase 4 — 实验评价与分析报告（已完成 Windows 本地验收）**。
-用户已确认进入 Phase 4，继续优先真实测量测试；完成后等待确认 Phase 5。
+当前阶段：**Phase 5 — 完善与发布验收（Windows 本地通过，三平台 CI 待执行）**。
+用户已确认继续 Phase 5，并提供 GitHub 远程。继续优先真实测量测试。
+
+## Phase 5
+
+- [x] 类型/有限数值/嵌套配置验证；通道、行区间冻结；二进制文件有界读取。
+- [x] 质量/特征/检测统一 UTF-8/LF 表指纹与映射；报告拒绝旧来源，schema 2。
+- [x] 数据/映射/核心版本变化同步清除旧页面结果和报告，版本纳入计算缓存。
+- [x] 新增 26 项边界与真实数据来源/界面回归，完整 **219 passed in 92.04s**。
+- [x] ruff 检查、58 文件格式、pip check、0.0.6 版本命令均通过。
+- [x] wheel 独立进程导入真实记录全流程：1320 行、528 特征、7020 评分、报告 schema 2。
+- [x] 固定真实实验复跑，导出 23 文件，四组 TP/FP/TN/FN 与 Phase 4 一致。
+- [x] 用户指南、课程报告/技术交底提纲、变更记录、验收映射与复现版本约束。
+- [x] 原始 prompt.md / LP1 SHA 不变；远程 origin 已连接并确认初始为空。
+- [ ] 核对提交范围，推送代码；GitHub Actions 三平台实际执行成功。
+- [ ] 升级 0.1.0 并验收该版本准确提交，发布 v0.1.0。
+
+详细证据见 [PHASE5_RESULT.md](examples/PHASE5_RESULT.md) 和
+[VALIDATION.md](docs/VALIDATION.md)。初次完整检查暴露旧版本页面清理遗漏报告，
+修复后专项与完整测试通过。未进行人工浏览器视觉检查。
 
 ## Phase 4
 
@@ -250,7 +268,7 @@ pandas 3.0.6、NumPy 2.4.6、pytest 8.4.2、ruff 0.16.10。
   原有 Python 与 PATH 保持原配置；IDE 应选择 `.venv/Scripts/python.exe`。
 - 已安装并直接声明 Streamlit、pandas、NumPy、Plotly、SciPy、scikit-learn；
   analysis extra 保留为空兼容组，dev 组提供测试/检查工具。
-- 未配置远程，不能触发 GitHub Actions。Linux/macOS 尚未验证。
+- 已连接用户提供的 GitHub origin；Linux/macOS 的实际验收状态见 Phase 5 记录。
 - CSV 上限 20 MiB / 100000 行 / 64 列；图最多 20000 行 / 8 通道。
   超出绘图限制时需缩小范围，不自动抽稀。UI 表格和标记也有明确显示上限。
 - 中位数间隔基准在多数间隔异常或分段采样率时可能不能代表期望频率。
