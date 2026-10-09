@@ -1,0 +1,29 @@
+# Local Python environments and downloaded tooling
+.venv/
+venv/
+.tools/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Test and lint output
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Private configuration and experimental data
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+data/
+reports/
+
+# Editor and operating system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
